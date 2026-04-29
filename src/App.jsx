@@ -38,6 +38,28 @@ const FEEDBACK_QUESTION_DESCRIPTIONS = [
 ];
 
 const REVIEW_QUESTIONS = RATING_QUESTIONS;
+const REVIEW_TABLE_HEADER_STYLE = { background: "transparent", color: "#000000" };
+const FEEDBACK_TEXTAREA_MIN_HEIGHT = 38;
+const FEEDBACK_TEXTAREA_MAX_HEIGHT = 148;
+
+function resizeFeedbackTextarea(textarea) {
+  if (!textarea) {
+    return;
+  }
+
+  textarea.style.setProperty("height", `${FEEDBACK_TEXTAREA_MIN_HEIGHT}px`, "important");
+  const nextHeight = Math.min(
+    Math.max(textarea.scrollHeight, FEEDBACK_TEXTAREA_MIN_HEIGHT),
+    FEEDBACK_TEXTAREA_MAX_HEIGHT,
+  );
+
+  textarea.style.setProperty("height", `${nextHeight}px`, "important");
+  textarea.style.setProperty(
+    "overflow-y",
+    textarea.scrollHeight > FEEDBACK_TEXTAREA_MAX_HEIGHT ? "auto" : "hidden",
+    "important",
+  );
+}
 
 const RATING_SCALE_REFERENCE = [
   { value: 5, blocks: "■■■■■", label: "Excellent", description: "No issues, smooth execution." },
@@ -1033,6 +1055,7 @@ function ReadOnlyReviewSplitTables({
   dashboardLayout = false,
 }) {
   const overallSummary = getOverallReviewSummary(reviewUsers);
+  const submittedReviewCount = reviewUsers.filter(Boolean).length;
 
   const feedbackTableSection = (
     <div className="detail-table-section">
@@ -1043,7 +1066,7 @@ function ReadOnlyReviewSplitTables({
         <table className="rev-table review-compare-table detail-split-table">
           <thead>
             <tr>
-              <th className="question-heading" style={{ background: "#6f86f7", color: "#ffffff" }}>Question</th>
+              <th className="question-heading" style={REVIEW_TABLE_HEADER_STYLE}>Question</th>
               {reviewUsers.map((review, reviewIndex) => (
                 <th key={`${event.id}-readonly-feedback-head-${reviewIndex}`} className="reviewer-heading-cell">
                   <div className="reviewer-head-name">{getReviewerHeaderLabel(review, reviewIndex)}</div>
@@ -1081,7 +1104,7 @@ function ReadOnlyReviewSplitTables({
         <table className="rev-table review-compare-table detail-split-table">
           <thead>
             <tr>
-              <th className="question-heading" style={{ background: "#6f86f7", color: "#ffffff" }}>Question</th>
+              <th className="question-heading" style={REVIEW_TABLE_HEADER_STYLE}>Question</th>
               {reviewUsers.map((review, reviewIndex) => (
                 <th key={`${event.id}-readonly-rating-head-${reviewIndex}`} className="reviewer-heading-cell">
                   <div className="reviewer-head-name">{getReviewerHeaderLabel(review, reviewIndex)}</div>
@@ -1128,19 +1151,30 @@ function ReadOnlyReviewSplitTables({
   const totalsSection = (
     <div className="overall-remark-section">
       <div className="detail-table-heading">
-        <div className="ev-name">RATING</div>
+        <div className="ev-name">Rating</div>
       </div>
       <div className="overall-remark-grid">
-        {reviewUsers.map((review, reviewIndex) => (
-          <article key={`${event.id}-readonly-total-${reviewIndex}`} className="overall-remark-card">
-            <span>{getReviewerHeaderLabel(review, reviewIndex)}</span>
-            <div className="overall-remark-summary">
-              <strong>{review ? getTotalRatingValue(review.questionRatings) : "-"}</strong>
-            </div>
-          </article>
-        ))}
+        {reviewUsers.map((review, reviewIndex) => {
+          const reviewerRole = getReviewerRoleLabel(reviewIndex);
+          const reviewerName = review?.author?.trim() || "Pending";
+
+          return (
+            <article key={`${event.id}-readonly-total-${reviewIndex}`} className="overall-remark-card">
+              <span>{reviewerRole}</span>
+              <div className="overall-remark-meta">
+                <p>{reviewerName}</p>
+              </div>
+              <div className="overall-remark-summary">
+                <strong>{review ? getTotalRatingValue(review.questionRatings) : "-/5"}</strong>
+              </div>
+            </article>
+          );
+        })}
         <article className="overall-remark-card overall-summary-card">
           <span>Overall rating</span>
+          <div className="overall-remark-meta">
+            <p>{`${submittedReviewCount} reviewer${submittedReviewCount === 1 ? "" : "s"}`}</p>
+          </div>
           <div className="overall-remark-summary">
             <strong>{overallSummary.total}</strong>
           </div>
@@ -1238,7 +1272,6 @@ function App() {
   const [previewMediaItem, setPreviewMediaItem] = useState(null);
   const [selectedMediaIds, setSelectedMediaIds] = useState([]);
   const [activeStarBadge, setActiveStarBadge] = useState({ id: "", x: "50%", y: "50%" });
-  const [activeFeedbackCell, setActiveFeedbackCell] = useState("");
   const [syncError, setSyncError] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [eventDetailTab, setEventDetailTab] = useState("overview");
@@ -3865,8 +3898,8 @@ function App() {
                     <table className="rev-table review-compare-table detail-split-table">
                       <thead>
                         <tr>
-                          <th className="q-num" style={{ background: "#6f86f7", color: "#ffffff" }}>#</th>
-                          <th className="question-heading" style={{ background: "#6f86f7", color: "#ffffff" }}>Questions</th>
+                          <th className="q-num" style={REVIEW_TABLE_HEADER_STYLE}>#</th>
+                          <th className="question-heading" style={REVIEW_TABLE_HEADER_STYLE}>Questions</th>
                           {feedbackOpenReviewerSlots.map(({ slotIndex: reviewIndex }) => (
                             <th key={`feedback-feedback-head-${reviewIndex}`} className="reviewer-heading-cell">
                               <div className="reviewer-heading">
@@ -3899,20 +3932,19 @@ function App() {
                               (() => {
                                 const cellId = `feedback-feedback-${reviewIndex}-${index}`;
                                 const cellValue = feedbackDrafts[reviewIndex].answers[index];
-                                const isExpanded = activeFeedbackCell === cellId || String(cellValue ?? "").trim().length > 0;
 
                                 return (
                                   <td key={cellId} className="answer-cell">
                                     <textarea
                                       id={cellId}
-                                      className={`entry-answer-input detail-comment-input feedback-answer-input ${isExpanded ? "is-expanded" : "is-collapsed"}`}
+                                      ref={resizeFeedbackTextarea}
+                                      className="entry-answer-input detail-comment-input feedback-answer-input"
                                       value={cellValue}
                                       placeholder="Click to add feedback..."
-                                      rows={isExpanded ? 4 : 1}
-                                      onFocus={() => setActiveFeedbackCell(cellId)}
-                                      onBlur={() => setActiveFeedbackCell((current) => (current === cellId ? "" : current))}
+                                      rows={1}
                                       onChange={(event) => {
                                         setReviewSuccess("");
+                                        resizeFeedbackTextarea(event.target);
                                         updateFeedbackDraftAnswer(reviewIndex, index, event.target.value);
                                       }}
                                     />
@@ -3937,8 +3969,8 @@ function App() {
                     <table className="rev-table review-compare-table detail-split-table">
                       <thead>
                         <tr>
-                          <th className="q-num" style={{ background: "#6f86f7", color: "#ffffff" }}>#</th>
-                          <th className="question-heading" style={{ background: "#6f86f7", color: "#ffffff" }}>Questions</th>
+                          <th className="q-num" style={REVIEW_TABLE_HEADER_STYLE}>#</th>
+                          <th className="question-heading" style={REVIEW_TABLE_HEADER_STYLE}>Questions</th>
                           {feedbackOpenReviewerSlots.map(({ slotIndex: reviewIndex }) => (
                             <th key={`feedback-head-${reviewIndex}`} className="reviewer-heading-cell">
                               <div className="reviewer-heading">

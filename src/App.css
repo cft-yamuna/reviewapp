@@ -10939,7 +10939,6 @@ body .event-detail-page .detail-header-input[readonly] {
   align-items: center;
   min-height: 56px;
   padding: 12px 22px !important;
-  background: #6f86f7 !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
@@ -11124,18 +11123,10 @@ body .event-detail-page .detail-header-input[readonly] {
 
 .feedback-page .feedback-answer-input {
   min-height: 38px !important;
-  height: 38px !important;
   resize: none !important;
-  overflow: hidden !important;
-  white-space: nowrap !important;
-  transition: height 0.18s ease, min-height 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease !important;
-}
-
-.feedback-page .feedback-answer-input.is-expanded {
-  min-height: 88px !important;
-  height: 88px !important;
-  overflow-y: auto !important;
+  overflow-y: hidden !important;
   white-space: pre-wrap !important;
+  transition: height 0.18s ease, min-height 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease !important;
 }
 
 .feedback-page .review-compare-table .star-input-button {
@@ -12936,7 +12927,7 @@ body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-cop
 body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-copy strong {
   font-size: 18px !important;
   font-weight: 700 !important;
-  color: rgba(255, 255, 255, 0.82) !important;
+  color: #ffffff !important;
 }
 
 body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-body {
@@ -15052,6 +15043,19 @@ body .page.event-detail-page .event-detail-activity-card .event-detail-activity-
   background: #ffffff !important;
 }
 
+.feedback-page .review-compare-table tbody tr td,
+.feedback-page .review-compare-table tbody tr:nth-child(even) td,
+.feedback-page .review-compare-table tbody tr:hover td,
+.feedback-page .review-compare-table tbody tr:nth-child(even):hover td,
+.feedback-page .rev-table tbody tr td,
+.feedback-page .rev-table tbody tr:nth-child(even) td,
+.feedback-page .rev-table tbody tr:hover td,
+.feedback-page .rev-table tbody tr:nth-child(even):hover td {
+  background: #ffffff !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
 .feedback-page .review-compare-table tbody tr:nth-child(even) td.q-cell {
   background: #ffffff !important;
 }
@@ -15641,6 +15645,39 @@ body .page.event-detail-page .event-detail-review-table-stack .review-compare-ta
   padding-bottom: 14px !important;
 }
 
+.feedback-page .review-compare-table tbody td.answer-cell .feedback-answer-input,
+.feedback-page .review-compare-table tbody td.answer-cell .entry-answer-input,
+.feedback-page .review-compare-table tbody td.answer-cell .detail-comment-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 38px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+.feedback-page .review-compare-table tbody td.answer-cell .feedback-answer-input::placeholder,
+.feedback-page .review-compare-table tbody td.answer-cell .entry-answer-input::placeholder,
+.feedback-page .review-compare-table tbody td.answer-cell .detail-comment-input::placeholder {
+  color: #98a2b3 !important;
+  -webkit-text-fill-color: #98a2b3 !important;
+  opacity: 1 !important;
+}
+
+.feedback-page .review-compare-table tbody td.answer-cell .feedback-answer-input:focus,
+.feedback-page .review-compare-table tbody td.answer-cell .entry-answer-input:focus,
+.feedback-page .review-compare-table tbody td.answer-cell .detail-comment-input:focus {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
 body .page.event-detail-page .overall-remark-card span,
 body .page.event-detail-page .overall-summary-card span {
   font-size: 15px !important;
@@ -15721,6 +15758,15 @@ body .page.event-detail-page:not(.event-detail-legacy) aside.event-detail-side-s
   font-size: 12px !important;
   font-weight: 400 !important;
   line-height: 1.4 !important;
+}
+
+.reviews-page .review-spread-card .panel-title,
+.reviews-page .review-spread-card .reviews-selected-meta,
+.reviews-page .review-spread-card .reviews-selected-meta span,
+.reviews-page .review-spread-card .review-event-select,
+.reviews-page .review-spread-card .review-event-select select {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
 }
 
 /* Final scroll guardrails for the Reviews and Submit Review flows. */
@@ -15919,4 +15965,298 @@ body .page.event-detail-page:not(.event-detail-legacy) aside.event-detail-side-s
     max-width: 100% !important;
     overflow: visible !important;
   }
+}
+
+/* Keep event names black in standard views, but preserve white text on the dark feature poster card. */
+.event-title,
+.dashboard-event-name,
+.dashboard-event-project,
+.feedback-subheader,
+.feedback-event-name,
+.photo-event,
+.events-simple-main strong,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-title,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-title,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-other-event-card strong {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+.events-page > .section-header .section-title {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-copy,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-copy span,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-copy strong {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-copy {
+  max-width: 220px !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-feature-copy span {
+  max-width: 220px !important;
+}
+
+body .page.event-detail-page .event-detail-activity-heading,
+body .page.event-detail-page .event-detail-activity-title-input,
+body .page.event-detail-page input.event-detail-activity-name {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+body .page.event-detail-page .event-detail-activity-title-input::placeholder,
+body .page.event-detail-page input.event-detail-activity-name::placeholder {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  opacity: 1 !important;
+}
+
+body .page.event-detail-page .event-detail-activity-subline,
+body .page.event-detail-page .event-detail-activity-description,
+body .page.event-detail-page .event-detail-activity-description-label,
+body .page.event-detail-page .event-detail-activity-description-trigger,
+body .page.event-detail-page .event-detail-setup-input,
+body .page.event-detail-page .event-detail-activity-card textarea.event-detail-activity-input,
+body .page.event-detail-page .event-detail-activity-card input.event-detail-activity-input {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+body .page.event-detail-page .event-detail-activity-description::placeholder,
+body .page.event-detail-page .event-detail-setup-input::placeholder,
+body .page.event-detail-page .event-detail-activity-card textarea.event-detail-activity-input::placeholder,
+body .page.event-detail-page .event-detail-activity-card input.event-detail-activity-input::placeholder {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  opacity: 1 !important;
+}
+
+body .page.event-detail-page .event-detail-activity-description,
+body .page.event-detail-page .event-detail-activity-description-trigger,
+body .page.event-detail-page .event-detail-activity-card textarea.event-detail-activity-input {
+  font-weight: 400 !important;
+}
+
+.reviews-page .question-title-copy {
+  font-size: 13px !important;
+}
+
+.feedback-page .question-title-copy {
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+}
+
+/* Keep review table headers background-free with black text. */
+.feedback-page .review-compare-table thead th,
+.feedback-page .review-compare-table thead th.question-heading,
+.feedback-page .review-compare-table thead th.q-num,
+.reviews-page .review-compare-table thead th,
+.reviews-page .review-compare-table thead th.question-heading,
+.reviews-page .review-compare-table thead tr > th:first-child,
+.event-detail-page .review-compare-table thead th,
+.event-detail-page .review-compare-table thead th.question-heading,
+.event-detail-page .review-compare-table thead th.q-num {
+  background: transparent !important;
+  background-image: none !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  border-color: #dbe4f0 !important;
+}
+
+.feedback-page .review-compare-table th .reviewer-head-name,
+.feedback-page .review-compare-table th .reviewer-slot-label,
+.feedback-page .review-compare-table th .reviewer-label-muted,
+.feedback-page .review-compare-table th .rating-text,
+.feedback-page .review-compare-table th .reviewer-name-input,
+.feedback-page .review-compare-table th .reviewer-slot-input,
+.reviews-page .review-compare-table th .reviewer-head-name,
+.reviews-page .review-compare-table th .reviewer-slot-label,
+.reviews-page .review-compare-table th .reviewer-label-muted,
+.reviews-page .review-compare-table th .rating-text,
+.event-detail-page .review-compare-table th .reviewer-head-name,
+.event-detail-page .review-compare-table th .reviewer-slot-label,
+.event-detail-page .review-compare-table th .reviewer-label-muted,
+.event-detail-page .review-compare-table th .rating-text {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+.feedback-page .review-compare-table th .reviewer-name-input,
+.feedback-page .review-compare-table th .reviewer-slot-input,
+.reviews-page .review-compare-table th .reviewer-name-input,
+.reviews-page .review-compare-table th .reviewer-slot-input,
+.event-detail-page .review-compare-table th .reviewer-name-input,
+.event-detail-page .review-compare-table th .reviewer-slot-input {
+  border-color: rgba(15, 23, 42, 0.14) !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+.feedback-page .detail-table-heading,
+.reviews-page .detail-table-heading,
+.event-detail-page .detail-table-card .detail-table-heading,
+body .page.event-detail-page:not(.event-detail-legacy) .detail-table-heading {
+  background: transparent !important;
+  background-image: none !important;
+  border-bottom-color: #dbe4f0 !important;
+}
+
+.feedback-page .detail-table-heading .ev-name,
+.reviews-page .detail-table-heading .ev-name,
+body .page.event-detail-page:not(.event-detail-legacy) .detail-table-heading .ev-name {
+  color: #7f8eab !important;
+  -webkit-text-fill-color: #7f8eab !important;
+}
+
+.reviews-page .review-compare-table thead th .reviewer-head-name,
+.reviews-page .review-compare-table thead th .reviewer-slot-label,
+.reviews-page .review-compare-table thead th .reviewer-label-muted,
+.reviews-page .review-compare-table thead th .rating-text {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+.reviews-page .rev-table tbody td,
+.feedback-page .rev-table tbody td {
+  background: #ffffff !important;
+}
+
+.reviews-page .question-title-copy,
+.feedback-page .question-title-copy,
+.event-detail-page .question-title-copy {
+  font-weight: 600 !important;
+}
+
+.feedback-page .review-compare-table thead th.question-heading,
+.reviews-page .review-compare-table thead th.question-heading,
+.event-detail-page .review-compare-table thead th.question-heading,
+.feedback-page .review-compare-table th .reviewer-slot-label,
+.feedback-page .review-compare-table th .reviewer-head-name,
+.reviews-page .review-compare-table th .reviewer-slot-label,
+.reviews-page .review-compare-table th .reviewer-head-name,
+.event-detail-page .review-compare-table th .reviewer-slot-label,
+.event-detail-page .review-compare-table th .reviewer-head-name {
+  font-weight: 600 !important;
+}
+
+.reviews-page .section-title,
+.reviews-page .panel-title,
+.reviews-page .detail-table-heading .ev-name,
+.reviews-page .reviews-selected-meta,
+.reviews-page .reviews-selected-meta span,
+.reviews-page .review-event-select select,
+.reviews-page .review-event-select option,
+.reviews-page .question-title-copy,
+.reviews-page .question-description-copy,
+.reviews-page .q-cell,
+.reviews-page .question-answer-copy,
+.reviews-page .table-placeholder,
+.reviews-page .reviewer-head-name,
+.reviews-page .reviewer-slot-label,
+.reviews-page .reviewer-label-muted,
+.reviews-page .rating-text,
+.reviews-page .reviews-overview-label,
+.reviews-page .reviews-overview-title,
+.reviews-page .reviews-overview-score,
+.reviews-page .reviews-overview-score span,
+.reviews-page .reviews-overview-count {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .detail-table-heading .ev-name,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .question-title-copy,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .question-description-copy,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .q-cell,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .question-answer-copy,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .table-placeholder,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .reviewer-head-name,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .reviewer-slot-label,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .reviewer-label-muted,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .rating-text,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .overall-remark-card span,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .overall-remark-card strong,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .overall-remark-meta,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-submitted-reviews .overall-remark-meta p {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .detail-table-heading .ev-name {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+  justify-content: stretch !important;
+  column-gap: 14px !important;
+  row-gap: 14px !important;
+  align-items: stretch !important;
+  padding: 0 !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-card,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-summary-card {
+  min-width: 0 !important;
+  padding: 14px 16px !important;
+  border: 1px solid #dbe4f0 !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04) !important;
+  gap: 6px !important;
+  justify-items: start !important;
+  text-align: left !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-grid > .overall-remark-card:first-child,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-grid > .overall-remark-card:nth-child(-n+3) {
+  padding-left: 16px !important;
+  margin-right: 0 !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-card span,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-summary-card span {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-meta {
+  display: block !important;
+  margin-top: 0 !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-meta p {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  font-weight: 400 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-summary {
+  margin-top: 2px !important;
+  gap: 0 !important;
+}
+
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-remark-card strong,
+body .page.event-detail-page:not(.event-detail-legacy) .event-detail-review-highlights .overall-summary-card strong {
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.01em !important;
 }
