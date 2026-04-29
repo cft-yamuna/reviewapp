@@ -1,0 +1,11 @@
+<svg width="410" height="150" viewBox="0 0 410 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">Craftech360</title>
+  <path d="M16 38L68 12L119 38L68 64L16 38Z" fill="#FFC629"/>
+  <path d="M16 38L68 64V121L16 94V38Z" fill="#D65311"/>
+  <path d="M68 64L119 38V94L68 121V64Z" fill="#F5A623"/>
+  <path d="M16 94L68 121L119 94L68 148L16 122V94Z" fill="#A44513"/>
+  <path d="M68 121L119 94V122L68 148V121Z" fill="#C76C19"/>
+  <path d="M76 68H123L95 93L123 117H76V68Z" fill="#050505"/>
+  <text x="135" y="107" fill="#050505" font-family="Aptos, Segoe UI, Arial, sans-serif" font-size="50" font-weight="700" letter-spacing="-1.2">craftech</text>
+  <text x="320" y="107" fill="#050505" font-family="Aptos, Segoe UI, Arial, sans-serif" font-size="46" font-weight="300" letter-spacing="0">360</text>
+</svg>

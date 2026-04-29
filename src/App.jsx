@@ -1,21 +1,56 @@
 ﻿
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
-import { isSupabaseConfigured, supabase, SUPABASE_BUCKET } from "./supabaseClient";
+import craftechLogo from "./assets/logoblacktext.png";
+import { isSupabaseConfigured, supabase, SUPABASE_BUCKET, SUPABASE_URL } from "./supabaseClient";
 
 const STAR = "\u2605";
+const PROJECT_ID_PREFIX = "CFT202627";
 
-const REVIEW_QUESTIONS = [
-  "How would you rate the overall experience?",
-  "How was the venue and facilities?",
-  "How was the content / programme quality?",
-  "How would you rate the organisation and logistics?",
-  "Would you recommend this event to others?",
+const RATING_QUESTIONS = [
+  "How would you rate the overall project delivery as per client expectation?",
+  "Was the setup completed on time and fully ready before event start?",
+  "How stable and reliable was the hardware & software during the event?",
+  "How well was the event handled on-ground (setup, coordination, troubleshooting)?",
+  "How satisfied was the client with the overall execution?",
+];
+
+const RATING_QUESTION_DESCRIPTIONS = [
+  "Evaluate if the final outcome matched what was promised to the client.",
+  "Check if setup was completed before event start without delays.",
+  "Assess system stability, failures, or performance issues.",
+  "Evaluate execution quality, coordination, and problem handling.",
+  "Based on client reactions, feedback, and overall satisfaction.",
+];
+
+const FEEDBACK_QUESTIONS = [
+  "What went well?",
+  "What went wrong?",
+  "What should we improve next time?",
+  "Was there any major issue?",
+];
+
+const FEEDBACK_QUESTION_DESCRIPTIONS = [
+  "Mention key positives such as smooth setup, no issues, client appreciation. Keep it short (1-2 lines).",
+  "Mention issues faced such as delay, hardware/software problems, or miscommunication.",
+  "Suggest improvements in process, technical setup, or team coordination.",
+  "Answer Yes/No. If Yes, mention type (Delay / Hardware / Software / Client Expectation) and impact (Low/Medium/High) within the same response.",
+];
+
+const REVIEW_QUESTIONS = RATING_QUESTIONS;
+
+const RATING_SCALE_REFERENCE = [
+  { value: 5, blocks: "■■■■■", label: "Excellent", description: "No issues, smooth execution." },
+  { value: 4, blocks: "■■■■", label: "Strong", description: "Minor issues, handled well." },
+  { value: 3, blocks: "■■■", label: "Average", description: "Noticeable issues." },
+  { value: 2, blocks: "■■", label: "Poor", description: "Multiple problems." },
+  { value: 1, blocks: "■", label: "Critical", description: "Major failure." },
 ];
 
 const STATUS_LABELS = {
   active: "Active",
   inactive: "Inactive",
+  pending: "Pending",
   submitted: "Submitted",
 };
 
@@ -25,15 +60,33 @@ const STATUS_TONES = {
   submitted: "blue",
 };
 
+const NAV_ITEMS = [
+  { page: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { page: "events", label: "Events", icon: "calendar" },
+  { page: "reviews", label: "Reviews", icon: "star" },
+  { page: "feedback", label: "Submit review", icon: "message" },
+  { page: "photos", label: "Gallery", icon: "image" },
+];
+
 const INITIAL_EVENTS = [
   {
     id: 1,
     title: "Annual Tech Summit 2024",
     desc: "A full-day conference bringing together industry leaders to discuss emerging technologies and innovation trends.",
+    activities: [
+      {
+        name: "Annual Tech Summit 2024",
+        description: "A full-day conference bringing together industry leaders to discuss emerging technologies and innovation trends.",
+        setupCount: 1,
+      },
+    ],
     date: "2024-03-15",
+    endDate: "2024-03-15",
     loc: "Bengaluru Convention Centre",
+    projectId: "CFT202627/001",
     projectTitle: "",
     attendeeName: "",
+    salesPerson: "",
     status: "active",
     photos: 0,
     reviews: [],
@@ -42,10 +95,20 @@ const INITIAL_EVENTS = [
     id: 2,
     title: "Product Design Workshop",
     desc: "Hands-on workshop covering UX research methods, prototyping techniques, and usability testing.",
+    activities: [
+      {
+        name: "Product Design Workshop",
+        description: "Hands-on workshop covering UX research methods, prototyping techniques, and usability testing.",
+        setupCount: 1,
+      },
+    ],
     date: "2024-04-02",
+    endDate: "2024-04-02",
     loc: "CoWork Hub, Koramangala",
+    projectId: "CFT202627/002",
     projectTitle: "",
     attendeeName: "",
+    salesPerson: "",
     status: "active",
     photos: 0,
     reviews: [],
@@ -54,10 +117,20 @@ const INITIAL_EVENTS = [
     id: 3,
     title: "Startup Pitch Night",
     desc: "Emerging startups present their ideas to a panel of investors and industry mentors.",
+    activities: [
+      {
+        name: "Startup Pitch Night",
+        description: "Emerging startups present their ideas to a panel of investors and industry mentors.",
+        setupCount: 1,
+      },
+    ],
     date: "2024-04-20",
+    endDate: "2024-04-20",
     loc: "91Springboard, HSR Layout",
+    projectId: "CFT202627/003",
     projectTitle: "",
     attendeeName: "",
+    salesPerson: "",
     status: "pending",
     photos: 0,
     reviews: [],
@@ -66,10 +139,20 @@ const INITIAL_EVENTS = [
     id: 4,
     title: "Cultural Evening Gala",
     desc: "An evening celebrating art, music and food from across Karnataka, featuring live performances.",
+    activities: [
+      {
+        name: "Cultural Evening Gala",
+        description: "An evening celebrating art, music and food from across Karnataka, featuring live performances.",
+        setupCount: 1,
+      },
+    ],
     date: "2024-02-10",
+    endDate: "2024-02-10",
     loc: "Lalit Ashok Hotel",
+    projectId: "CFT202627/004",
     projectTitle: "",
     attendeeName: "",
+    salesPerson: "",
     status: "inactive",
     photos: 0,
     reviews: [],
@@ -80,26 +163,167 @@ const INITIAL_FORM = {
   title: "",
   desc: "",
   date: new Date().toISOString().slice(0, 10),
+  endDate: new Date().toISOString().slice(0, 10),
+  createdAt: new Date().toISOString().slice(0, 10),
   loc: "",
+  projectId: "",
   projectTitle: "",
   attendeeName: "",
+  salesPerson: "",
 };
 
 const INITIAL_REVIEW_FORM = {
   eventId: "",
   author: "",
   rating: 5,
-  questionRatings: REVIEW_QUESTIONS.map(() => 0),
-  answers: REVIEW_QUESTIONS.map(() => ""),
+  questionRatings: RATING_QUESTIONS.map(() => 0),
+  answers: FEEDBACK_QUESTIONS.map(() => ""),
 };
 
-const MEDIA_TONES = ["ocean", "gold", "forest", "coral"];
+const EMPTY_REVIEWER_SLOTS = [null, null, null];
+const REVIEWER_ROLES = ["BD", "ET", "TT"];
+const REVIEWER_ROLE_LABELS = ["BD", "Executor", "Tech"];
 
-function createEmptyDetailDraft() {
+const MEDIA_TONES = ["ocean", "gold", "forest", "coral"];
+const REVIEW_QUESTIONS_STORAGE_KEY = "eventReviewRatingQuestionsV2";
+const LOCAL_EVENTS_STORAGE_KEY = "eventReviewEvents";
+const UI_STATE_STORAGE_KEY = "eventReviewUiState";
+const ADMIN_ACCESS_STORAGE_KEY = "eventReviewAdminAccess";
+const LOGIN_ACCESS_STORAGE_KEY = "eventReviewAllowedEmail";
+const ADMIN_PASSCODE = import.meta.env.VITE_ADMIN_PASSCODE || "craftech360";
+const ALLOWED_SIGNIN_EMAIL = "subscription.cft360@gmail.com";
+const RESTORABLE_PAGES = new Set(["dashboard", "events", "reviews", "eventDetail", "feedback", "photos"]);
+
+function getStoredEvents() {
+  if (typeof window === "undefined") {
+    return INITIAL_EVENTS;
+  }
+
+  try {
+    const storedEvents = window.localStorage.getItem(LOCAL_EVENTS_STORAGE_KEY);
+    const parsedEvents = storedEvents ? JSON.parse(storedEvents) : null;
+
+    if (Array.isArray(parsedEvents)) {
+      return applyOrderedProjectIds(parsedEvents.map((event) => ({
+        ...event,
+        id: Number(event.id),
+        projectId: String(event.projectId ?? "").trim(),
+        projectTitle: event.projectTitle ?? event.title ?? "",
+        attendeeName: normalizeAttendeeName(event.attendeeName),
+        salesPerson: event.salesPerson ?? "",
+        createdAt: event.createdAt ?? event.date,
+        endDate: event.endDate ?? event.date,
+        activities: normalizeActivities(event.activities, event.title ?? "", event.desc ?? ""),
+        photos: Number(event.photos ?? 0),
+        reviews: Array.isArray(event.reviews) ? event.reviews.map(normalizeReview) : [],
+      })));
+    }
+  } catch {
+    return INITIAL_EVENTS;
+  }
+
+  return INITIAL_EVENTS;
+}
+
+function getStoredReviewQuestions() {
+  return REVIEW_QUESTIONS;
+}
+
+function getStoredUiState() {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const storedState = window.localStorage.getItem(UI_STATE_STORAGE_KEY);
+    const parsedState = storedState ? JSON.parse(storedState) : null;
+    return parsedState && typeof parsedState === "object" ? parsedState : {};
+  } catch {
+    return {};
+  }
+}
+
+function getStoredAdminAccess() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(ADMIN_ACCESS_STORAGE_KEY) === "true";
+}
+
+function isAllowedCompanyEmail(email) {
+  const normalizedEmail = String(email ?? "").trim().toLowerCase();
+  return normalizedEmail === ALLOWED_SIGNIN_EMAIL;
+}
+
+function getStoredAccessEmail() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const storedEmail = window.localStorage.getItem(LOGIN_ACCESS_STORAGE_KEY) ?? "";
+  return isAllowedCompanyEmail(storedEmail) ? storedEmail : "";
+}
+
+function createEmptyDetailDraft(index = 0) {
   return {
-    questionRatings: REVIEW_QUESTIONS.map(() => 0),
-    answers: REVIEW_QUESTIONS.map(() => ""),
+    reviewerName: "",
+    questionRatings: RATING_QUESTIONS.map(() => 0),
+    answers: FEEDBACK_QUESTIONS.map(() => ""),
+    remark: "",
   };
+}
+
+function getReviewerRoleLabel(reviewIndex) {
+  return REVIEWER_ROLE_LABELS[reviewIndex] ?? `Reviewer ${reviewIndex + 1}`;
+}
+
+function getReviewerHeaderLabel(review, reviewIndex) {
+  const roleLabel = getReviewerRoleLabel(reviewIndex);
+  const reviewerName = review?.author ? review.author : "Pending";
+  return `${roleLabel}: ${reviewerName}`;
+}
+
+function ReviewerRoleLabel({ review, reviewIndex }) {
+  return <div className="reviewer-head-name">{getReviewerHeaderLabel(review, reviewIndex)}</div>;
+}
+
+function ReviewerNameInput({ reviewIndex, value, onChange }) {
+  return (
+    <label className="reviewer-slot-entry">
+      <span className="reviewer-slot-label">{`${getReviewerRoleLabel(reviewIndex)}:`}</span>
+      <input
+        type="text"
+        className="reviewer-slot-input reviewer-name-input"
+        value={value}
+        placeholder="Enter name"
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function RatingScaleReference({ title = "Rating Scale Reference", compact = false }) {
+  return (
+    <section className={`rating-scale-card ${compact ? "compact" : ""}`}>
+      <div className="rating-scale-title">{title}</div>
+      <div className="rating-scale-list">
+        {RATING_SCALE_REFERENCE.map((item) => (
+          <article key={item.value} className="rating-scale-item">
+            <div className="rating-scale-scoreline">
+              <span className="rating-scale-blocks" aria-hidden="true">
+                {item.blocks}
+              </span>
+              <strong>{`(${item.value})`}</strong>
+            </div>
+            <div className="rating-scale-copy">
+              <span>{item.description}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function createInitialMediaItems(events) {
@@ -107,6 +331,10 @@ function createInitialMediaItems(events) {
 }
 
 function normalizeReview(review = {}) {
+  const normalizedAnswers = Array.isArray(review.answers)
+    ? FEEDBACK_QUESTIONS.map((_, index) => review.answers[index] ?? "")
+    : FEEDBACK_QUESTIONS.map(() => "");
+
   return {
     author: review.author ?? "Anonymous Reviewer",
     initials: review.initials ?? getInitials(review.author ?? "Anonymous Reviewer"),
@@ -117,12 +345,36 @@ function normalizeReview(review = {}) {
         ? undefined
         : Number(review.reviewSlot),
     questionRatings: Array.isArray(review.questionRatings)
-      ? review.questionRatings.map((value) => Number(value ?? 0))
-      : REVIEW_QUESTIONS.map(() => 0),
-    answers: Array.isArray(review.answers)
-      ? REVIEW_QUESTIONS.map((_, index) => review.answers[index] ?? "")
-      : REVIEW_QUESTIONS.map(() => ""),
+      ? RATING_QUESTIONS.map((_, index) => Number(review.questionRatings[index] ?? 0))
+      : RATING_QUESTIONS.map(() => 0),
+    answers: normalizedAnswers,
+    remark: review.remark ?? normalizedAnswers.find((answer) => answer.trim()) ?? "",
   };
+}
+
+function normalizeAttendeeName(value) {
+  return value === "Not assigned" ? "" : value ?? "";
+}
+
+function normalizeActivities(activities, fallbackTitle = "", fallbackDescription = "") {
+  if (Array.isArray(activities) && activities.length) {
+    return activities.map((activity, index) => ({
+      name: activity?.name ?? (index === 0 ? fallbackTitle : ""),
+      description: activity?.description ?? "",
+      setupCount:
+        activity?.setupCount === ""
+          ? ""
+          : Math.max(1, Number(activity?.setupCount ?? 1)),
+    }));
+  }
+
+  return [
+    {
+      name: fallbackTitle,
+      description: fallbackDescription,
+      setupCount: 1,
+    },
+  ];
 }
 
 function mapDbEvent(record) {
@@ -130,10 +382,15 @@ function mapDbEvent(record) {
     id: Number(record.id),
     title: record.title,
     desc: record.desc ?? "No description provided.",
+    activities: normalizeActivities(record.activities, record.title, record.desc ?? "No description provided."),
     date: record.date,
+    endDate: record.end_date ?? record.date,
     loc: record.loc ?? "TBD",
+    projectId: String(record.project_id ?? "").trim(),
     projectTitle: record.project_title ?? "",
-    attendeeName: record.attendee_name ?? "",
+    attendeeName: normalizeAttendeeName(record.attendee_name),
+    salesPerson: record.sales_person ?? "",
+    createdAt: record.created_at ?? record.date,
     status: record.status ?? "active",
     photos: Number(record.photos ?? 0),
     reviews: Array.isArray(record.reviews) ? record.reviews.map(normalizeReview) : [],
@@ -158,16 +415,24 @@ function mapDbMediaItem(record) {
 function toEventPayload(event, includeId = true) {
   const payload = {
     title: event.title,
-    desc: event.desc ?? "",
+    desc: event.activities?.[0]?.description ?? event.desc ?? "",
+    activities: normalizeActivities(event.activities, event.title, event.desc ?? ""),
     date: event.date,
+    end_date: event.endDate || event.date,
     loc: event.loc ?? "",
+    project_id: event.projectId ?? "",
     project_title: event.projectTitle ?? "",
-    attendee_name: event.attendeeName ?? "",
+    attendee_name: normalizeAttendeeName(event.attendeeName),
+    sales_person: event.salesPerson ?? "",
     status: event.status ?? "active",
     photos: Number(event.photos ?? 0),
     reviews: Array.isArray(event.reviews) ? event.reviews : [],
     updated_at: new Date().toISOString(),
   };
+
+  if (event.createdAt) {
+    payload.created_at = new Date(event.createdAt).toISOString();
+  }
 
   if (includeId) {
     payload.id = Number(event.id);
@@ -176,16 +441,210 @@ function toEventPayload(event, includeId = true) {
   return payload;
 }
 
+function isMissingSupabaseColumn(error, columnName) {
+  return String(error?.message ?? "")
+    .toLowerCase()
+    .includes(`'${columnName.toLowerCase()}' column`);
+}
+
+function getMissingSupabaseColumn(error, columnNames) {
+  return columnNames.find((columnName) => isMissingSupabaseColumn(error, columnName)) ?? null;
+}
+
+function isSupabaseNetworkError(error) {
+  const message = String(error?.message ?? error ?? "").toLowerCase();
+  return error instanceof TypeError || message.includes("failed to fetch") || message.includes("networkerror");
+}
+
+function getSupabaseOfflineMessage() {
+  return "Supabase could not be reached, so this change is kept locally for now. Check your internet connection, Supabase URL/key, or retry after Supabase is reachable.";
+}
+
 function sanitizeFileName(fileName) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
+}
+
+function formatProjectId(number) {
+  return `${PROJECT_ID_PREFIX}/${String(number).padStart(3, "0")}`;
+}
+
+function normalizeProjectId(value, fallbackNumber = 0) {
+  const trimmedValue = String(value ?? "").trim();
+
+  if (trimmedValue) {
+    return trimmedValue;
+  }
+
+  if (Number.isFinite(Number(fallbackNumber)) && Number(fallbackNumber) > 0) {
+    return formatProjectId(Number(fallbackNumber));
+  }
+
+  return "";
+}
+
+function applyOrderedProjectIds(events) {
+  return events.map((event, index) => ({
+    ...event,
+    projectId: normalizeProjectId(event.projectId, index + 1),
+  }));
 }
 
 function formatDate(date) {
   return new Intl.DateTimeFormat("en-IN", {
     day: "2-digit",
-    month: "short",
+    month: "2-digit",
     year: "numeric",
   }).format(new Date(date));
+}
+
+function formatEventDateRange(event) {
+  const fromDate = event.date;
+  const toDate = event.endDate || event.date;
+
+  if (!fromDate || !toDate) {
+    return formatDate(fromDate || toDate);
+  }
+
+  return `${formatDate(fromDate)} to ${formatDate(toDate)}`;
+}
+
+function formatShortYearDate(date) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(new Date(date));
+}
+
+function formatShortEventDateRange(event) {
+  const fromDate = event.date;
+  const toDate = event.endDate || event.date;
+
+  if (!fromDate || !toDate) {
+    return formatShortYearDate(fromDate || toDate);
+  }
+
+  return `${formatShortYearDate(fromDate)} to ${formatShortYearDate(toDate)}`;
+}
+
+function formatEventTimelineDate(date) {
+  if (!date) {
+    return { month: "--", day: "--" };
+  }
+
+  const parsedDate = new Date(date);
+
+  return {
+    month: new Intl.DateTimeFormat("en-IN", { month: "short" }).format(parsedDate),
+    day: new Intl.DateTimeFormat("en-IN", { day: "numeric" }).format(parsedDate),
+  };
+}
+
+function formatStatusLabel(status) {
+  return STATUS_LABELS[status] ?? `${String(status ?? "inactive").slice(0, 1).toUpperCase()}${String(status ?? "inactive").slice(1)}`;
+}
+
+function getSupabaseLoadErrorMessage(...errors) {
+  const validErrors = errors.filter(Boolean);
+  const hasInvalidKey = validErrors.some((error) =>
+    [error.message, error.hint].some((value) => String(value ?? "").toLowerCase().includes("invalid api key")),
+  );
+
+  if (hasInvalidKey) {
+    return "Supabase rejected the API key. Update VITE_SUPABASE_ANON_KEY in .env and Netlify with the anon public key from this Supabase project.";
+  }
+
+  const eventsError = validErrors.find(Boolean);
+  const rawError = getSupabaseErrorText(eventsError);
+
+  if (isMissingSupabaseRelation(eventsError, "events")) {
+    return "Supabase is connected, but the events table is missing. Run supabase-setup.sql in this Supabase project.";
+  }
+
+  if (isMissingSupabaseRelation(eventsError, "media_items")) {
+    return "Supabase is connected, but the media_items table is missing. Run supabase-setup.sql in this Supabase project.";
+  }
+
+  return `Supabase load failed: ${rawError || "Unknown Supabase error"}`;
+}
+
+function getSupabaseMissingConfigMessage() {
+  return "Supabase sync is off in this deployed build. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Netlify, then redeploy the site.";
+}
+
+function isMissingSupabaseRelation(error, relationName) {
+  const errorText = [error?.message, error?.details, error?.hint].filter(Boolean).join(" ").toLowerCase();
+  const relation = String(relationName ?? "").toLowerCase();
+  return Boolean(
+    relation &&
+      (errorText.includes(`relation "${relation}" does not exist`) ||
+        errorText.includes(`table "${relation}" does not exist`) ||
+        errorText.includes(relation)),
+  );
+}
+
+function getSupabasePartialLoadWarning(mediaError) {
+  if (!mediaError) {
+    return "";
+  }
+
+  if (isMissingSupabaseRelation(mediaError, "media_items")) {
+    return "Events loaded from Supabase, but the gallery table is missing. Run supabase-setup.sql to add media_items and storage setup.";
+  }
+
+  return `Events loaded from Supabase, but gallery data could not be loaded: ${getSupabaseErrorText(mediaError) || "Unknown error"}`;
+}
+
+function getSupabaseProjectHost() {
+  try {
+    return new URL(SUPABASE_URL).host;
+  } catch {
+    return "";
+  }
+}
+
+function getSupabaseErrorText(error) {
+  return [
+    error?.message,
+    error?.name,
+    error?.code,
+    error?.status,
+    error?.details,
+    error?.hint,
+  ]
+    .filter(Boolean)
+    .map(String)
+    .join(" ");
+}
+
+function getSupabaseActionErrorMessage(action, error) {
+  const rawError = getSupabaseErrorText(error) || "Unknown Supabase error";
+  const lowerError = rawError.toLowerCase();
+  const host = getSupabaseProjectHost();
+
+  if (
+    lowerError.includes("failed to fetch") ||
+    lowerError.includes("networkerror") ||
+    lowerError.includes("load failed")
+  ) {
+    return `${action}: the browser could not reach Supabase${
+      host ? ` (${host})` : ""
+    }. Check VITE_SUPABASE_URL, that the Supabase project is active, that this device/network can reach Supabase, and that Supabase API CORS/allowed origins includes this site. Original error: ${rawError}`;
+  }
+
+  if (lowerError.includes("bucket not found") || lowerError.includes("not found")) {
+    return `${action}: the "${SUPABASE_BUCKET}" storage bucket was not found. Run supabase-setup.sql in the matching Supabase project. Original error: ${rawError}`;
+  }
+
+  if (lowerError.includes("row-level security") || lowerError.includes("violates row-level security")) {
+    return `${action}: Supabase row-level security blocked the request. Run supabase-setup.sql and confirm the storage policies are installed for "${SUPABASE_BUCKET}". Original error: ${rawError}`;
+  }
+
+  if (lowerError.includes("invalid api key") || lowerError.includes("jwt")) {
+    return `${action}: Supabase rejected the API key. Update VITE_SUPABASE_ANON_KEY with the anon public key from the same Supabase project. Original error: ${rawError}`;
+  }
+
+  return `${action}: ${rawError}`;
 }
 
 function getAverageRating(reviews) {
@@ -254,7 +713,6 @@ function InteractiveRatingBadge({
       }
     >
       <StarDisplay rating={rating} compact={compact} />
-      <span className="rating-text">{text}</span>
     </button>
   );
 }
@@ -268,6 +726,7 @@ function InteractiveStarOption({
   onActivate,
   onSelect,
   onMouseEnter,
+  compact = false,
 }) {
   return (
     <button
@@ -285,13 +744,22 @@ function InteractiveStarOption({
           ? {
               "--ripple-x": activeStarBadge.x,
               "--ripple-y": activeStarBadge.y,
+              width: compact ? "42px" : undefined,
+              height: compact ? "42px" : undefined,
+              borderRadius: compact ? "12px" : undefined,
             }
-          : undefined
+          : compact
+            ? {
+                width: "42px",
+                height: "42px",
+                borderRadius: "12px",
+              }
+            : undefined
       }
       aria-label={`${value} star${value > 1 ? "s" : ""}`}
       aria-pressed={selected}
     >
-      <span className="star-input-glyph" aria-hidden="true">
+      <span className="star-input-glyph" aria-hidden="true" style={compact ? { fontSize: "30px" } : undefined}>
         {STAR}
       </span>
     </button>
@@ -304,6 +772,7 @@ function StarRatingInput({
   activeStarBadge,
   onActivate,
   onChange,
+  compact = false,
 }) {
   const [hoveredValue, setHoveredValue] = useState(0);
   const visibleValue = hoveredValue || value;
@@ -314,6 +783,7 @@ function StarRatingInput({
       role="radiogroup"
       aria-label="Select rating"
       onMouseLeave={() => setHoveredValue(0)}
+      style={compact ? { gap: "6px", width: "100%", justifyContent: "center", alignItems: "center" } : undefined}
     >
       {[1, 2, 3, 4, 5].map((starValue) => (
         <InteractiveStarOption
@@ -326,6 +796,7 @@ function StarRatingInput({
           onSelect={() => onChange(starValue)}
           selected={starValue === value}
           onMouseEnter={() => setHoveredValue(starValue)}
+          compact={compact}
         />
       ))}
     </div>
@@ -334,6 +805,175 @@ function StarRatingInput({
 
 function getQuestionRating(review, index) {
   return review.questionRatings?.[index] ?? review.rating ?? 0;
+}
+
+function getReviewRemark(review) {
+  if (!review) {
+    return "-";
+  }
+
+  const feedbackText = [
+    String(review.remark ?? "").trim(),
+    ...(Array.isArray(review.answers) ? review.answers.map((answer) => String(answer ?? "").trim()) : []),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const validRatings = Array.isArray(review.questionRatings)
+    ? review.questionRatings.map((rating) => Number(rating)).filter((rating) => rating > 0)
+    : [];
+  const averageRating = validRatings.length
+    ? validRatings.reduce((total, rating) => total + rating, 0) / validRatings.length
+    : Number(review.rating ?? 0);
+
+  return getOverallRemarkWord(feedbackText, averageRating);
+}
+
+function shouldUseActivityDescriptionPreview(description) {
+  const normalizedDescription = String(description ?? "").trim();
+
+  if (!normalizedDescription) {
+    return false;
+  }
+
+  return /\r?\n/.test(normalizedDescription) || normalizedDescription.length > 90;
+}
+
+function QuestionCell({ question, description }) {
+  return (
+    <div className="question-copy">
+      <div className="question-title-copy">{question}</div>
+      {description ? <div className="question-description-copy">{description}</div> : null}
+    </div>
+  );
+}
+
+function getFallbackRemarkWord(rating) {
+  const roundedRating = Math.round(Number(rating) || 0);
+
+  if (roundedRating >= 5) {
+    return "Best";
+  }
+
+  if (roundedRating >= 4) {
+    return "Strong";
+  }
+
+  if (roundedRating >= 3) {
+    return "Average";
+  }
+
+  if (roundedRating >= 2) {
+    return "Bad";
+  }
+
+  if (roundedRating >= 1) {
+    return "Critical";
+  }
+
+  return "Pending";
+}
+
+function getOverallRemarkWord(comment, rating = 0) {
+  const text = String(comment ?? "").trim().toLowerCase();
+
+  if (!text) {
+    return getFallbackRemarkWord(rating);
+  }
+
+  const hasAny = (terms) => terms.some((term) => text.includes(term));
+
+  if (hasAny(["critical", "major failure", "worst", "disaster", "failed", "failure"])) {
+    return "Critical";
+  }
+
+  if (hasAny(["best", "excellent", "smooth", "perfect", "outstanding", "great", "superb"])) {
+    return "Best";
+  }
+
+  if (hasAny(["bad", "poor", "delay", "issue", "problem", "unstable", "difficult"])) {
+    return "Bad";
+  }
+
+  if (hasAny(["average", "okay", "ok", "fine", "manageable", "decent"])) {
+    return "Average";
+  }
+
+  if (hasAny(["good", "nice", "well", "satisfied", "positive", "successful"])) {
+    return "Strong";
+  }
+
+  return getFallbackRemarkWord(rating);
+}
+
+function getDraftAverageRating(draft) {
+  const ratings = draft.questionRatings.filter(Boolean);
+
+  if (!ratings.length) {
+    return "-";
+  }
+
+  return (ratings.reduce((total, rating) => total + rating, 0) / ratings.length).toFixed(1);
+}
+
+function getTotalRatingValue(questionRatings = []) {
+  const validRatings = questionRatings.filter(Boolean);
+
+  if (!validRatings.length) {
+    return "-/5";
+  }
+
+  return `${(validRatings.reduce((total, rating) => total + rating, 0) / validRatings.length).toFixed(1)}/5`;
+}
+
+function getOverallReviewSummary(entries = []) {
+  const populatedEntries = entries.filter((entry) => {
+    if (!entry) {
+      return false;
+    }
+
+    const hasRatings = Array.isArray(entry.questionRatings) && entry.questionRatings.some((rating) => Number(rating) > 0);
+    const hasRemark = String(entry.remark ?? "").trim().length > 0;
+    return hasRatings || hasRemark;
+  });
+
+  if (!populatedEntries.length) {
+    return {
+      total: "-/5",
+      average: "Pending",
+      remark: "Pending",
+    };
+  }
+
+  const perQuestionAverages = RATING_QUESTIONS.map((_, index) => {
+    const questionRatings = populatedEntries
+      .map((entry) => Number(entry.questionRatings?.[index] ?? 0))
+      .filter((rating) => rating > 0);
+
+    if (!questionRatings.length) {
+      return null;
+    }
+
+    return questionRatings.reduce((total, rating) => total + rating, 0) / questionRatings.length;
+  }).filter((rating) => rating !== null);
+
+  if (!perQuestionAverages.length) {
+    return {
+      total: "-/5",
+      average: "Pending",
+      remark: "Pending",
+    };
+  }
+
+  const totalScore = perQuestionAverages.reduce((total, rating) => total + rating, 0);
+  const averageScore = totalScore / perQuestionAverages.length;
+  const combinedRemark = populatedEntries.map((entry) => String(entry.remark ?? "").trim()).filter(Boolean).join(" ");
+
+  return {
+    total: `${averageScore.toFixed(1)}/5`,
+    average: getOverallRemarkWord(combinedRemark, averageScore),
+    remark: getOverallRemarkWord(combinedRemark, averageScore),
+  };
 }
 
 function getQuestionAverage(reviews, index) {
@@ -384,104 +1024,43 @@ function getEventDisplayStatus(event) {
 function ReadOnlyReviewSplitTables({
   event,
   reviewUsers,
+  feedbackQuestions,
+  ratingQuestions,
+  onDeleteReview,
   activeStarBadge,
   onActivateStarBadge,
+  plainStars = false,
+  dashboardLayout = false,
 }) {
-  return (
-    <div className="reviews-table-wrap detail-review-table-wrap">
-      <div className="detail-table-section">
-        <div className="detail-table-heading">
-          <div className="ev-name">Ratings Table</div>
-          <div className="ev-meta">5 questions with 3 reviewers shown across the same row.</div>
-        </div>
-        <table className="rev-table review-compare-table detail-split-table">
-          <thead>
-            <tr>
-              <th className="q-num">#</th>
-              <th className="question-heading">Question</th>
-              {reviewUsers.map((review, reviewIndex) => (
-                <th key={`${event.id}-readonly-rating-head-${reviewIndex}`} className="reviewer-heading-cell">
-                  <div className="reviewer-heading">
-                    <div className={`avatar ${review?.avatar ?? "a"}`}>{review?.initials ?? `R${reviewIndex + 1}`}</div>
-                    <div>
-                      <div className="reviewer-head-name">{`Reviewer ${reviewIndex + 1}`}</div>
-                      <div className="reviewer-label-muted">{review ? review.author : "Waiting for input"}</div>
-                      {review ? (
-                        <div className="reviewer-head-stars">
-                          <InteractiveRatingBadge
-                            badgeId={`${event.id}-readonly-head-${reviewIndex}`}
-                            rating={review.rating}
-                            text={`${review.rating} out of 5`}
-                            activeStarBadge={activeStarBadge}
-                            onActivate={onActivateStarBadge}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {REVIEW_QUESTIONS.map((question, index) => (
-              <tr key={`${event.id}-${question}-readonly-rating-row`}>
-                <td className="q-num">{index + 1}</td>
-                <td className="q-cell">{question}</td>
-                {reviewUsers.map((review, reviewIndex) => (
-                  <td key={`${event.id}-readonly-rating-${reviewIndex}-${index}`} className="answer-cell rating-only-cell">
-                    {review ? (
-                      <InteractiveRatingBadge
-                        badgeId={`${event.id}-readonly-question-${reviewIndex}-${index}`}
-                        rating={getQuestionRating(review, index)}
-                        text={`${getQuestionRating(review, index)}/5`}
-                        compact
-                        activeStarBadge={activeStarBadge}
-                        onActivate={onActivateStarBadge}
-                      />
-                    ) : (
-                      <div className="table-placeholder">-</div>
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  const overallSummary = getOverallReviewSummary(reviewUsers);
+
+  const feedbackTableSection = (
+    <div className="detail-table-section">
+      <div className="detail-table-heading">
+        <div className="ev-name">Feedback</div>
       </div>
-
-      <div className="detail-table-gap" />
-
-      <div className="detail-table-section">
-        <div className="detail-table-heading">
-          <div className="ev-name">Comments Table</div>
-          <div className="ev-meta">The same 5 questions and the same 3 reviewers, with comments only.</div>
-        </div>
+      <div className="detail-table-card detail-table-card-compact">
         <table className="rev-table review-compare-table detail-split-table">
           <thead>
             <tr>
-              <th className="q-num">#</th>
-              <th className="question-heading">Question</th>
+              <th className="question-heading" style={{ background: "#6f86f7", color: "#ffffff" }}>Question</th>
               {reviewUsers.map((review, reviewIndex) => (
-                <th key={`${event.id}-readonly-comment-head-${reviewIndex}`} className="reviewer-heading-cell">
-                  <div className="reviewer-heading">
-                    <div className={`avatar ${review?.avatar ?? "a"}`}>{review?.initials ?? `R${reviewIndex + 1}`}</div>
-                    <div>
-                      <div className="reviewer-head-name">{`Reviewer ${reviewIndex + 1}`}</div>
-                      <div className="reviewer-label-muted">{review ? review.author : "Waiting for input"}</div>
-                    </div>
-                  </div>
+                <th key={`${event.id}-readonly-feedback-head-${reviewIndex}`} className="reviewer-heading-cell">
+                  <div className="reviewer-head-name">{getReviewerHeaderLabel(review, reviewIndex)}</div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {REVIEW_QUESTIONS.map((question, index) => (
-              <tr key={`${event.id}-${question}-readonly-comment-row`}>
-                <td className="q-num">{index + 1}</td>
-                <td className="q-cell">{question}</td>
+            {feedbackQuestions.map((question, index) => (
+              <tr key={`${event.id}-${question}-readonly-feedback-row`}>
+                <td className="q-cell">
+                  <QuestionCell
+                    question={question}
+                    />
+                  </td>
                 {reviewUsers.map((review, reviewIndex) => (
-                  <td key={`${event.id}-readonly-comment-${reviewIndex}-${index}`} className="answer-cell">
+                  <td key={`${event.id}-readonly-feedback-${reviewIndex}-${index}`} className="answer-cell">
                     {review ? <div className="question-answer-copy">{review.answers[index] || "-"}</div> : <div className="table-placeholder">-</div>}
                   </td>
                 ))}
@@ -492,38 +1071,274 @@ function ReadOnlyReviewSplitTables({
       </div>
     </div>
   );
+
+  const ratingTableSection = (
+    <div className="detail-table-section">
+      <div className="detail-table-heading">
+        <div className="ev-name">Rating Table</div>
+      </div>
+      <div className="detail-table-card detail-table-card-compact detail-table-card-rating">
+        <table className="rev-table review-compare-table detail-split-table">
+          <thead>
+            <tr>
+              <th className="question-heading" style={{ background: "#6f86f7", color: "#ffffff" }}>Question</th>
+              {reviewUsers.map((review, reviewIndex) => (
+                <th key={`${event.id}-readonly-rating-head-${reviewIndex}`} className="reviewer-heading-cell">
+                  <div className="reviewer-head-name">{getReviewerHeaderLabel(review, reviewIndex)}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ratingQuestions.map((question, index) => (
+              <tr key={`${event.id}-${question}-readonly-rating-row`}>
+                <td className="q-cell">
+                  <QuestionCell
+                    question={question}
+                    />
+                  </td>
+                {reviewUsers.map((review, reviewIndex) => (
+                  <td key={`${event.id}-readonly-rating-${reviewIndex}-${index}`} className="answer-cell rating-only-cell">
+                    {review ? (
+                      plainStars ? (
+                        <div className="event-detail-flat-star-copy">{STAR.repeat(getQuestionRating(review, index)) || "-"}</div>
+                      ) : (
+                        <InteractiveRatingBadge
+                          badgeId={`${event.id}-readonly-question-${reviewIndex}-${index}`}
+                          rating={getQuestionRating(review, index)}
+                          text={`${getQuestionRating(review, index)}/5`}
+                          compact
+                          activeStarBadge={activeStarBadge}
+                          onActivate={onActivateStarBadge}
+                        />
+                      )
+                    ) : (
+                      <div className="table-placeholder">-</div>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const totalsSection = (
+    <div className="overall-remark-section">
+      <div className="detail-table-heading">
+        <div className="ev-name">RATING</div>
+      </div>
+      <div className="overall-remark-grid">
+        {reviewUsers.map((review, reviewIndex) => (
+          <article key={`${event.id}-readonly-total-${reviewIndex}`} className="overall-remark-card">
+            <span>{getReviewerHeaderLabel(review, reviewIndex)}</span>
+            <div className="overall-remark-summary">
+              <strong>{review ? getTotalRatingValue(review.questionRatings) : "-"}</strong>
+            </div>
+          </article>
+        ))}
+        <article className="overall-remark-card overall-summary-card">
+          <span>Overall rating</span>
+          <div className="overall-remark-summary">
+            <strong>{overallSummary.total}</strong>
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+
+  return (
+    dashboardLayout ? (
+      <div className={`reviews-table-wrap detail-review-table-wrap ${dashboardLayout ? "review-dashboard-layout" : ""}`}>
+        <div className="event-detail-review-dashboard">
+          <div className="event-detail-review-table-stack">
+            {feedbackTableSection}
+            {ratingTableSection}
+          </div>
+          <div className="event-detail-review-highlights">
+            {totalsSection}
+          </div>
+        </div>
+      </div>
+    ) : (
+      <>
+        <div className="reviews-table-wrap detail-review-table-wrap">
+          {feedbackTableSection}
+        </div>
+        <div className="detail-table-gap" />
+        <div className="reviews-table-wrap detail-review-table-wrap">
+          {ratingTableSection}
+        </div>
+        {totalsSection}
+      </>
+    )
+  );
 }
 
 function App() {
-  const [activePage, setActivePage] = useState("dashboard");
-  const [events, setEvents] = useState(INITIAL_EVENTS);
+  const reviewOnlyPath = window.location.pathname.replace(/\/+$/, "") === "/review";
+  const reviewOnlyQuery = new URLSearchParams(window.location.search).get("view") === "review";
+  const isPublicReviewMode = reviewOnlyPath || reviewOnlyQuery;
+  const initialEventState = getStoredEvents();
+  const storedAccessEmail = getStoredAccessEmail();
+  const storedUiState = getStoredUiState();
+  const storedSelectedEventExists = initialEventState.some((event) => String(event.id) === String(storedUiState.selectedEventId));
+  const storedSelectedReviewEventExists = initialEventState.some((event) => String(event.id) === String(storedUiState.selectedReviewEventId));
+  const storedMediaEventExists = initialEventState.some((event) => String(event.id) === String(storedUiState.mediaEventId));
+  const initialSelectedEventId = String(
+    storedSelectedEventExists ? storedUiState.selectedEventId : initialEventState[0]?.id ?? "",
+  );
+  const initialReviewEventId = String(
+    storedSelectedReviewEventExists ? storedUiState.selectedReviewEventId : initialEventState[0]?.id ?? "",
+  );
+  const initialMediaEventId = String(
+    storedMediaEventExists
+      ? storedUiState.mediaEventId
+      : (initialEventState.find((event) => event.status !== "inactive")?.id ?? initialEventState[0]?.id ?? ""),
+  );
+  const initialActivePage =
+    isPublicReviewMode
+      ? "feedback"
+      : RESTORABLE_PAGES.has(storedUiState.activePage)
+        ? storedUiState.activePage
+        : "dashboard";
+  const [activePage, setActivePage] = useState(initialActivePage);
+  const [events, setEvents] = useState(initialEventState);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [nextId, setNextId] = useState(INITIAL_EVENTS.length + 1);
+  const [nextId, setNextId] = useState(
+    initialEventState.reduce((maxId, event) => Math.max(maxId, Number(event.id ?? 0)), 0) + 1,
+  );
   const [form, setForm] = useState(INITIAL_FORM);
   const [editingEventId, setEditingEventId] = useState(null);
   const [reviewForm, setReviewForm] = useState({
     ...INITIAL_REVIEW_FORM,
-    eventId: String(INITIAL_EVENTS.find((event) => event.status === "active")?.id ?? INITIAL_EVENTS[0].id),
+    eventId: String(initialEventState.find((event) => event.status === "active")?.id ?? initialEventState[0]?.id ?? ""),
   });
   const [reviewSuccess, setReviewSuccess] = useState("");
-  const [selectedReviewEventId, setSelectedReviewEventId] = useState(String(INITIAL_EVENTS[0].id));
-  const [selectedEventId, setSelectedEventId] = useState(String(INITIAL_EVENTS[0].id));
+  const [selectedReviewEventId, setSelectedReviewEventId] = useState(initialReviewEventId);
+  const [selectedEventId, setSelectedEventId] = useState(initialSelectedEventId);
+  const [feedbackReturnPage, setFeedbackReturnPage] = useState("feedback");
   const [detailDrafts, setDetailDrafts] = useState(() =>
-    Array.from({ length: 3 }, () => createEmptyDetailDraft()),
+    Array.from({ length: 3 }, (_, index) => createEmptyDetailDraft(index)),
   );
   const [feedbackDrafts, setFeedbackDrafts] = useState(() =>
-    Array.from({ length: 3 }, () => createEmptyDetailDraft()),
+    Array.from({ length: 3 }, (_, index) => createEmptyDetailDraft(index)),
   );
-  const [mediaItems, setMediaItems] = useState(() => createInitialMediaItems(INITIAL_EVENTS));
-  const [mediaEventId, setMediaEventId] = useState(
-    String(INITIAL_EVENTS.find((event) => event.status !== "inactive")?.id ?? INITIAL_EVENTS[0].id),
-  );
+  const [isFeedbackFormOpen, setIsFeedbackFormOpen] = useState(false);
+  const [reviewQuestions, setReviewQuestions] = useState(() => getStoredReviewQuestions());
+  const [questionDrafts, setQuestionDrafts] = useState(() => getStoredReviewQuestions());
+  const [isEditingQuestions, setIsEditingQuestions] = useState(false);
+  const [mediaItems, setMediaItems] = useState(() => createInitialMediaItems(initialEventState));
+  const [mediaEventId, setMediaEventId] = useState(initialMediaEventId);
   const [pendingEventMediaFiles, setPendingEventMediaFiles] = useState([]);
   const [pendingFeedbackMediaFiles, setPendingFeedbackMediaFiles] = useState([]);
   const [mediaSuccess, setMediaSuccess] = useState("");
+  const [previewMediaItem, setPreviewMediaItem] = useState(null);
+  const [selectedMediaIds, setSelectedMediaIds] = useState([]);
   const [activeStarBadge, setActiveStarBadge] = useState({ id: "", x: "50%", y: "50%" });
+  const [activeFeedbackCell, setActiveFeedbackCell] = useState("");
   const [syncError, setSyncError] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
+  const [eventDetailTab, setEventDetailTab] = useState("overview");
+  const [editingActivityNameIndex, setEditingActivityNameIndex] = useState(null);
+  const [editingActivityDescriptionIndex, setEditingActivityDescriptionIndex] = useState(null);
+  const [activityDescriptionPreview, setActivityDescriptionPreview] = useState(null);
+  const [dashboardSearchInput, setDashboardSearchInput] = useState("");
+  const [dashboardSearchQuery, setDashboardSearchQuery] = useState("");
+  const [eventsSearchInput, setEventsSearchInput] = useState("");
+  const [eventsSearchQuery, setEventsSearchQuery] = useState("");
+  const [feedbackSearchInput, setFeedbackSearchInput] = useState("");
+  const [feedbackSearchQuery, setFeedbackSearchQuery] = useState("");
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => getStoredAdminAccess());
+  const [adminPasscode, setAdminPasscode] = useState("");
+  const [adminError, setAdminError] = useState("");
+  const [accessEmail, setAccessEmail] = useState(storedAccessEmail);
+  const [loginEmail, setLoginEmail] = useState(storedAccessEmail);
+  const [loginError, setLoginError] = useState("");
+  const eventDetailMediaInputRef = useRef(null);
+  const feedbackMediaInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!previewMediaItem) {
+      return undefined;
+    }
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setPreviewMediaItem(null);
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [previewMediaItem]);
+
+  useEffect(() => {
+    setEditingActivityNameIndex(null);
+    setEditingActivityDescriptionIndex(null);
+    setActivityDescriptionPreview(null);
+    setEventDetailTab("overview");
+  }, [selectedEventId]);
+
+  useEffect(() => {
+    if (JSON.stringify(reviewQuestions) !== JSON.stringify(REVIEW_QUESTIONS)) {
+      setReviewQuestions(REVIEW_QUESTIONS);
+      setQuestionDrafts(REVIEW_QUESTIONS);
+    }
+  }, [reviewQuestions]);
+
+  useEffect(() => {
+    window.localStorage.setItem(REVIEW_QUESTIONS_STORAGE_KEY, JSON.stringify(reviewQuestions));
+  }, [reviewQuestions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(LOCAL_EVENTS_STORAGE_KEY, JSON.stringify(events));
+  }, [events]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || isPublicReviewMode) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      UI_STATE_STORAGE_KEY,
+      JSON.stringify({
+        activePage,
+        selectedEventId,
+        selectedReviewEventId,
+        mediaEventId,
+      }),
+    );
+  }, [activePage, selectedEventId, selectedReviewEventId, mediaEventId, isPublicReviewMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (accessEmail) {
+      window.localStorage.setItem(LOGIN_ACCESS_STORAGE_KEY, accessEmail);
+      return;
+    }
+
+    window.localStorage.removeItem(LOGIN_ACCESS_STORAGE_KEY);
+  }, [accessEmail]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setIsSyncing(false);
+      setSyncError(getSupabaseMissingConfigMessage());
+      return;
+    }
+
+    setSyncError("");
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
@@ -540,23 +1355,50 @@ function App() {
         supabase.from("events").select("*").order("id", { ascending: true });
       const fetchMedia = async () =>
         supabase.from("media_items").select("*").order("created_at", { ascending: false });
+      const insertSeedEvents = async () => {
+        const optionalColumns = ["activities", "end_date", "project_title", "attendee_name", "sales_person"];
+        const omittedColumns = new Set();
+        let payload = INITIAL_EVENTS.map((event) => toEventPayload(event, false));
+        let { error } = await supabase.from("events").insert(payload);
+
+        while (error) {
+          const missingColumn = getMissingSupabaseColumn(error, optionalColumns);
+
+          if (!missingColumn || omittedColumns.has(missingColumn)) {
+            break;
+          }
+
+          omittedColumns.add(missingColumn);
+          payload = payload.map((eventPayload) => {
+            const nextPayload = { ...eventPayload };
+            delete nextPayload[missingColumn];
+            return nextPayload;
+          });
+          ({ error } = await supabase.from("events").insert(payload));
+        }
+
+        return { error };
+      };
 
       let [{ data: eventRows, error: eventsError }, { data: mediaRows, error: mediaError }] =
         await Promise.all([fetchEvents(), fetchMedia()]);
 
-      if (eventsError || mediaError) {
+      if (eventsError) {
         if (!ignore) {
-          setSyncError(
-            "Supabase is connected, but the tables or storage setup are missing. Run supabase-setup.sql first.",
-          );
+          setSyncError(getSupabaseLoadErrorMessage(eventsError, mediaError));
           setIsSyncing(false);
         }
         return;
       }
 
+      let partialLoadWarning = "";
+      if (mediaError) {
+        partialLoadWarning = getSupabasePartialLoadWarning(mediaError);
+        mediaRows = [];
+      }
+
       if (!eventRows.length) {
-        const seedPayload = INITIAL_EVENTS.map((event) => toEventPayload(event, false));
-        const { error: seedError } = await supabase.from("events").insert(seedPayload);
+        const { error: seedError } = await insertSeedEvents();
 
         if (seedError) {
           if (!ignore) {
@@ -569,33 +1411,51 @@ function App() {
         [{ data: eventRows, error: eventsError }, { data: mediaRows, error: mediaError }] =
           await Promise.all([fetchEvents(), fetchMedia()]);
 
-        if (eventsError || mediaError) {
+        if (eventsError) {
           if (!ignore) {
             setSyncError("Supabase setup finished, but loading the new data failed.");
             setIsSyncing(false);
           }
           return;
         }
+
+        if (mediaError) {
+          partialLoadWarning = getSupabasePartialLoadWarning(mediaError);
+          mediaRows = [];
+        }
       }
 
       if (!ignore) {
-        const mappedEvents = eventRows.map(mapDbEvent);
+        const mappedEvents = applyOrderedProjectIds(eventRows.map(mapDbEvent));
         const mappedMedia = mediaRows.map(mapDbMediaItem);
         setEvents(mappedEvents);
         setMediaItems(mappedMedia);
+        setSyncError(partialLoadWarning);
         setNextId(mappedEvents.reduce((maxId, event) => Math.max(maxId, event.id), 0) + 1);
         if (mappedEvents.length) {
-          setSelectedEventId(String(mappedEvents[0].id));
-          setSelectedReviewEventId(
-            String(mappedEvents.find((event) => event.reviews.length > 0)?.id ?? mappedEvents[0].id),
-          );
+          const restoredSelectedEventId =
+            mappedEvents.find((event) => String(event.id) === String(storedUiState.selectedEventId))?.id ??
+            mappedEvents[0].id;
+          const restoredSelectedReviewEventId =
+            mappedEvents.find((event) => String(event.id) === String(storedUiState.selectedReviewEventId))?.id ??
+            mappedEvents.find((event) => event.reviews.length > 0)?.id ??
+            mappedEvents[0].id;
+          const restoredMediaEventId =
+            mappedEvents.find((event) => String(event.id) === String(storedUiState.mediaEventId))?.id ??
+            mappedEvents.find((event) => event.status !== "inactive")?.id ??
+            mappedEvents[0].id;
+
+          setSelectedEventId(String(restoredSelectedEventId));
+          setSelectedReviewEventId(String(restoredSelectedReviewEventId));
           setReviewForm((current) => ({
             ...current,
-            eventId: String(mappedEvents.find((event) => event.status === "active")?.id ?? mappedEvents[0].id),
+            eventId: String(
+              mappedEvents.find((event) => String(event.id) === String(current.eventId))?.id ??
+                mappedEvents.find((event) => event.status === "active")?.id ??
+                mappedEvents[0].id,
+            ),
           }));
-          setMediaEventId(
-            String(mappedEvents.find((event) => event.status !== "inactive")?.id ?? mappedEvents[0].id),
-          );
+          setMediaEventId(String(restoredMediaEventId));
         }
         setIsSyncing(false);
       }
@@ -610,21 +1470,112 @@ function App() {
 
   const totalReviews = events.reduce((count, event) => count + event.reviews.length, 0);
   const totalPhotos = mediaItems.length;
-  const dashboardEvents = events.slice(0, 3);
+  const activeEventsCount = events.filter((event) => event.status === "active").length;
+  const overallAverageRating = totalReviews
+    ? events.reduce((total, event) => total + event.reviews.reduce((sum, review) => sum + Number(review.rating ?? 0), 0), 0) /
+      totalReviews
+    : 0;
+  const dashboardSearchTerm = dashboardSearchQuery.trim().toLowerCase();
+  const eventsSearchTerm = eventsSearchQuery.trim().toLowerCase();
+  const matchingDashboardEvents = events
+    .slice()
+    .sort((eventA, eventB) => {
+      const dateA = new Date(eventA.date);
+      const dateB = new Date(eventB.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      dateA.setHours(0, 0, 0, 0);
+      dateB.setHours(0, 0, 0, 0);
+
+      const timeA = dateA.getTime();
+      const timeB = dateB.getTime();
+      const isUpcomingA = timeA >= today.getTime();
+      const isUpcomingB = timeB >= today.getTime();
+
+      if (isUpcomingA !== isUpcomingB) {
+        return isUpcomingA ? -1 : 1;
+      }
+
+      return isUpcomingA ? timeA - timeB : timeB - timeA;
+    })
+    .filter((event) => {
+      if (!dashboardSearchTerm) {
+        return true;
+      }
+
+      return event.title.toLowerCase().startsWith(dashboardSearchTerm);
+    });
+  const dashboardEvents = matchingDashboardEvents;
+  const filteredEvents = events.filter((event) => {
+    if (!eventsSearchTerm) {
+      return true;
+    }
+
+    return [
+      event.title,
+      event.loc,
+      event.projectId,
+      event.attendeeName,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(eventsSearchTerm));
+  });
   const publicReviewEvents = events.filter((event) => event.status !== "inactive");
   const eventsWithReviews = events.filter((event) => event.reviews.length > 0);
+  const latestProjectNumber = events.reduce((maxNumber, event) => {
+    const match = String(event.projectId ?? "").match(/(\d{3,})$/);
+    return match ? Math.max(maxNumber, Number(match[1])) : maxNumber;
+  }, 0);
+  const suggestedProjectId = formatProjectId(Math.max(latestProjectNumber + 1, nextId));
 
   const selectedMediaEvent =
     publicReviewEvents.find((event) => String(event.id) === mediaEventId) ?? publicReviewEvents[0] ?? null;
   const selectedReviewEvent =
     eventsWithReviews.find((event) => String(event.id) === selectedReviewEventId) ?? eventsWithReviews[0] ?? null;
-  const selectedReviewUsers = selectedReviewEvent ? getReviewerSlots(selectedReviewEvent.reviews) : [null, null, null];
+  const selectedReviewUsers = selectedReviewEvent ? selectedReviewEvent.reviews : [];
 
   const selectedEvent = events.find((event) => String(event.id) === selectedEventId) ?? events[0] ?? null;
   const selectedEventTableUsers = selectedEvent ? getReviewerSlots(selectedEvent.reviews) : [null, null, null];
+  const selectedEventOverallSummary = getOverallReviewSummary(
+    selectedEventTableUsers.map((review, reviewIndex) => review ?? detailDrafts[reviewIndex]),
+  );
   const feedbackSelectedEvent =
     publicReviewEvents.find((event) => String(event.id) === reviewForm.eventId) ?? publicReviewEvents[0] ?? null;
-  const feedbackTableUsers = feedbackSelectedEvent ? getReviewerSlots(feedbackSelectedEvent.reviews) : [null, null, null];
+  const feedbackReviewerSlots = feedbackSelectedEvent
+    ? getReviewerSlots(feedbackSelectedEvent.reviews).map((review, slotIndex) => ({ review, slotIndex }))
+    : EMPTY_REVIEWER_SLOTS.map((review, slotIndex) => ({ review, slotIndex }));
+  const feedbackOpenReviewerSlots = feedbackReviewerSlots.filter(({ review }) => !review);
+  const feedbackOverallSummary = getOverallReviewSummary(
+    feedbackReviewerSlots.map(({ review, slotIndex }) => review ?? feedbackDrafts[slotIndex]),
+  );
+  const getFeedbackEventCondition = (event) => {
+    if (event.reviews.length >= EMPTY_REVIEWER_SLOTS.length || event.status === "submitted") {
+      return "Submitted";
+    }
+
+    return "Pending";
+  };
+  const pendingFeedbackEvents = publicReviewEvents.filter(
+    (event) => getFeedbackEventCondition(event) === "Pending",
+  );
+  const filteredPendingFeedbackEvents = pendingFeedbackEvents.filter((event) => {
+    const query = feedbackSearchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    return [
+      event.projectId,
+      event.title,
+      event.loc,
+      event.attendeeName,
+      event.salesPerson,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
 
   const eventMediaItems = mediaItems
     .filter((item) => (selectedMediaEvent ? item.eventId === selectedMediaEvent.id : true))
@@ -633,13 +1584,19 @@ function App() {
   const selectedEventMediaItems = mediaItems
     .filter((item) => (selectedEvent ? item.eventId === selectedEvent.id : true))
     .sort((first, second) => String(second.id).localeCompare(String(first.id)));
-  const feedbackEventMediaItems = mediaItems
-    .filter((item) => (feedbackSelectedEvent ? item.eventId === feedbackSelectedEvent.id : true))
-    .sort((first, second) => String(second.id).localeCompare(String(first.id)));
-
-  const reportSyncError = (message) => {
+  const selectedEventActivities = selectedEvent
+    ? normalizeActivities(selectedEvent.activities, selectedEvent.title, selectedEvent.desc)
+    : [];
+  const selectedEventCompletedReviews = selectedEventTableUsers.filter(Boolean).length;
+  const otherEventSuggestions = events
+    .filter((event) => String(event.id) !== String(selectedEventId))
+    .slice(0, 8);
+  const reportSyncError = (message, options = {}) => {
+    const { alertUser = true } = options;
     setSyncError(message);
-    window.alert(message);
+    if (alertUser) {
+      window.alert(message);
+    }
   };
 
   const syncEventRecord = async (eventRecord, options = {}) => {
@@ -648,17 +1605,45 @@ function App() {
     }
 
     const { includeId = true } = options;
-    const query = includeId
-      ? supabase.from("events").upsert(toEventPayload(eventRecord, true), { onConflict: "id" }).select().single()
-      : supabase.from("events").insert(toEventPayload(eventRecord, false)).select().single();
+    const optionalColumns = ["activities", "end_date", "project_title", "attendee_name", "sales_person"];
+    const omittedColumns = new Set();
+    const runEventQuery = (payload) =>
+      includeId
+        ? supabase.from("events").upsert(payload, { onConflict: "id" }).select().single()
+        : supabase.from("events").insert(payload).select().single();
 
-    const { data, error } = await query;
+    let payload = toEventPayload(eventRecord, includeId);
+    let { data, error } = await runEventQuery(payload);
+
+    while (error) {
+      const missingColumn = getMissingSupabaseColumn(error, optionalColumns);
+
+      if (!missingColumn || omittedColumns.has(missingColumn)) {
+        break;
+      }
+
+      payload = { ...payload };
+      delete payload[missingColumn];
+      omittedColumns.add(missingColumn);
+      ({ data, error } = await runEventQuery(payload));
+    }
 
     if (error) {
       throw error;
     }
 
-    return mapDbEvent(data);
+    const savedEvent = mapDbEvent(data);
+
+    return {
+      ...savedEvent,
+      activities: omittedColumns.has("activities")
+        ? normalizeActivities(eventRecord.activities, eventRecord.title, eventRecord.desc)
+        : savedEvent.activities,
+      endDate: omittedColumns.has("end_date") ? eventRecord.endDate || eventRecord.date : savedEvent.endDate,
+      projectTitle: omittedColumns.has("project_title") ? eventRecord.projectTitle ?? eventRecord.title : savedEvent.projectTitle,
+      attendeeName: omittedColumns.has("attendee_name") ? eventRecord.attendeeName ?? "" : savedEvent.attendeeName,
+      salesPerson: omittedColumns.has("sales_person") ? eventRecord.salesPerson ?? "" : savedEvent.salesPerson,
+    };
   };
 
   const updateEventInState = (eventRecord) => {
@@ -692,6 +1677,11 @@ function App() {
       updateEventInState(savedEvent);
       setSyncError("");
     } catch (error) {
+      if (isSupabaseNetworkError(error)) {
+        setSyncError(getSupabaseOfflineMessage());
+        return;
+      }
+
       reportSyncError(`Could not save event changes to Supabase: ${error.message}`);
     }
   };
@@ -759,7 +1749,7 @@ function App() {
       ...INITIAL_REVIEW_FORM,
       eventId: String(id),
     });
-    setDetailDrafts(Array.from({ length: 3 }, () => createEmptyDetailDraft()));
+    setDetailDrafts(Array.from({ length: 3 }, (_, index) => createEmptyDetailDraft(index)));
     setMediaEventId(String(id));
     setPendingEventMediaFiles([]);
     setReviewSuccess("");
@@ -774,26 +1764,10 @@ function App() {
     }
 
     const relatedMedia = mediaItems.filter((item) => item.eventId === id);
+    const storagePaths = relatedMedia.map((item) => item.storagePath).filter(Boolean);
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const storagePaths = relatedMedia.map((item) => item.storagePath).filter(Boolean);
-
-        if (storagePaths.length) {
-          const { error: storageError } = await supabase.storage
-            .from(SUPABASE_BUCKET)
-            .remove(storagePaths);
-
-          if (storageError) {
-            throw storageError;
-          }
-        }
-
-        const { error: mediaError } = await supabase.from("media_items").delete().eq("event_id", id);
-        if (mediaError) {
-          throw mediaError;
-        }
-
         const { error: eventError } = await supabase.from("events").delete().eq("id", id);
         if (eventError) {
           throw eventError;
@@ -801,22 +1775,70 @@ function App() {
 
         setSyncError("");
       } catch (error) {
-        reportSyncError(`Could not delete the event from Supabase: ${error.message}`);
+        reportSyncError(getSupabaseActionErrorMessage("Could not delete the event from Supabase", error));
         return;
       }
     }
 
-    setEvents((currentEvents) => currentEvents.filter((event) => event.id !== id));
+    const remainingEvents = events.filter((event) => event.id !== id);
+    const nextSelectedEvent = remainingEvents[0];
+
+    setEvents(remainingEvents);
     setMediaItems((currentItems) => currentItems.filter((item) => item.eventId !== id));
+
+    if (String(selectedEventId) === String(id)) {
+      setSelectedEventId(String(nextSelectedEvent?.id ?? ""));
+    }
+
+    if (String(selectedReviewEventId) === String(id)) {
+      setSelectedReviewEventId(String(nextSelectedEvent?.id ?? ""));
+    }
+
+    setReviewForm((current) => ({
+      ...current,
+      eventId: String(current.eventId) === String(id) ? String(nextSelectedEvent?.id ?? "") : current.eventId,
+    }));
+
+    if (String(mediaEventId) === String(id)) {
+      setMediaEventId(String(nextSelectedEvent?.id ?? ""));
+    }
+
+    if (isSupabaseConfigured && supabase && storagePaths.length) {
+      try {
+        const { error: storageError } = await supabase.storage.from(SUPABASE_BUCKET).remove(storagePaths);
+
+        if (storageError) {
+          setSyncError(getSupabaseActionErrorMessage("The event was deleted, but Supabase storage cleanup failed", storageError));
+        }
+      } catch (storageError) {
+        setSyncError(getSupabaseActionErrorMessage("The event was deleted, but Supabase storage cleanup failed", storageError));
+      }
+    }
   };
 
   const openModal = () => {
     setForm({
       ...INITIAL_FORM,
       date: new Date().toISOString().slice(0, 10),
+      endDate: new Date().toISOString().slice(0, 10),
+      createdAt: new Date().toISOString().slice(0, 10),
+      projectId: suggestedProjectId,
     });
     setEditingEventId(null);
     setIsModalOpen(true);
+  };
+
+  const openNewEventPage = () => {
+    setForm({
+      ...INITIAL_FORM,
+      date: new Date().toISOString().slice(0, 10),
+      endDate: new Date().toISOString().slice(0, 10),
+      createdAt: new Date().toISOString().slice(0, 10),
+      projectId: suggestedProjectId,
+    });
+    setEditingEventId(null);
+    setIsModalOpen(false);
+    setActivePage("newEvent");
   };
 
   const openEditModal = (eventToEdit) => {
@@ -824,9 +1846,13 @@ function App() {
       title: eventToEdit.title,
       desc: eventToEdit.desc,
       date: eventToEdit.date,
+      endDate: eventToEdit.endDate ?? eventToEdit.date,
+      createdAt: eventToEdit.createdAt ?? eventToEdit.date,
       loc: eventToEdit.loc,
+      projectId: eventToEdit.projectId ?? "",
       projectTitle: eventToEdit.projectTitle ?? "",
       attendeeName: eventToEdit.attendeeName ?? "",
+      salesPerson: eventToEdit.salesPerson ?? "",
     });
     setEditingEventId(eventToEdit.id);
     setIsModalOpen(true);
@@ -838,15 +1864,63 @@ function App() {
     setEditingEventId(null);
   };
 
+  const cancelNewEventPage = () => {
+    setForm(INITIAL_FORM);
+    setEditingEventId(null);
+    setActivePage("events");
+  };
+
+  const unlockAdmin = (event) => {
+    event.preventDefault();
+
+    if (adminPasscode !== ADMIN_PASSCODE) {
+      setAdminError("Incorrect admin passcode.");
+      return;
+    }
+
+    window.localStorage.setItem(ADMIN_ACCESS_STORAGE_KEY, "true");
+    setIsAdminUnlocked(true);
+    setAdminPasscode("");
+    setAdminError("");
+  };
+
+  const lockAdmin = () => {
+    window.localStorage.removeItem(ADMIN_ACCESS_STORAGE_KEY);
+    setIsAdminUnlocked(false);
+    setAdminPasscode("");
+    setAdminError("");
+    setActivePage("dashboard");
+  };
+
   const saveEvent = async () => {
     const title = form.title.trim();
     const desc = form.desc.trim();
     const loc = form.loc.trim();
-    const projectTitle = form.projectTitle.trim();
+    const projectId =
+      editingEventId !== null
+        ? normalizeProjectId(form.projectId, editingEventId ?? nextId)
+        : normalizeProjectId(form.projectId, nextId);
     const attendeeName = form.attendeeName.trim();
+    const salesPerson = form.salesPerson.trim();
+    const activities = normalizeActivities(
+      [
+        {
+          name: title,
+          description: desc || "No description provided.",
+          setupCount: 1,
+        },
+      ],
+      title,
+      desc || "No description provided.",
+    );
 
     if (!title) {
       window.alert("Please enter an event title.");
+      return;
+    }
+
+    if (form.date && form.endDate && form.endDate < form.date) {
+      window.alert("To date cannot be earlier than From date.");
       return;
     }
 
@@ -857,10 +1931,15 @@ function App() {
         id: editingEventId,
         title,
         desc: desc || "No description provided.",
+        activities: currentEvent?.activities?.length ? currentEvent.activities : activities,
         date: form.date || new Date().toISOString().slice(0, 10),
+        endDate: form.endDate || form.date || new Date().toISOString().slice(0, 10),
+        createdAt: currentEvent?.createdAt ?? form.createdAt ?? form.date,
         loc: loc || "TBD",
-        projectTitle: projectTitle || title,
-        attendeeName: attendeeName || "Not assigned",
+        projectId,
+        projectTitle: title,
+        attendeeName,
+        salesPerson,
       };
 
       updateEventInState(updatedEvent);
@@ -871,6 +1950,13 @@ function App() {
           updateEventInState(savedEvent);
           setSyncError("");
         } catch (error) {
+          if (isSupabaseNetworkError(error)) {
+            setSyncError(getSupabaseOfflineMessage());
+            closeModal();
+            setActivePage("events");
+            return;
+          }
+
           reportSyncError(`Could not update the event in Supabase: ${error.message}`);
           return;
         }
@@ -880,10 +1966,15 @@ function App() {
         id: nextId,
         title,
         desc: desc || "No description provided.",
+        activities,
         date: form.date || new Date().toISOString().slice(0, 10),
+        endDate: form.endDate || form.date || new Date().toISOString().slice(0, 10),
+        createdAt: new Date().toISOString(),
         loc: loc || "TBD",
-        projectTitle: projectTitle || title,
-        attendeeName: attendeeName || "Not assigned",
+        projectId,
+        projectTitle: title,
+        attendeeName,
+        salesPerson,
         status: "active",
         photos: 0,
         reviews: [],
@@ -896,6 +1987,15 @@ function App() {
           setNextId((currentId) => Math.max(currentId, savedEvent.id + 1));
           setSyncError("");
         } catch (error) {
+          if (isSupabaseNetworkError(error)) {
+            setEvents((currentEvents) => [newEvent, ...currentEvents]);
+            setNextId((currentId) => currentId + 1);
+            setSyncError(getSupabaseOfflineMessage());
+            closeModal();
+            setActivePage("events");
+            return;
+          }
+
           reportSyncError(`Could not create the event in Supabase: ${error.message}`);
           return;
         }
@@ -906,7 +2006,12 @@ function App() {
     }
 
     closeModal();
-    setActivePage("events");
+
+    if (editingEventId !== null && activePage === "eventDetail") {
+      setSelectedEventId(String(editingEventId));
+    } else {
+      setActivePage("events");
+    }
   };
 
   const updateSelectedEventField = (field, value) => {
@@ -914,7 +2019,82 @@ function App() {
       return;
     }
 
+    if (field === "title") {
+      persistEventPatch(selectedEvent.id, { title: value, projectTitle: value });
+      return;
+    }
+
     persistEventPatch(selectedEvent.id, { [field]: value });
+  };
+
+  const updateSelectedActivityField = (activityIndex, field, value) => {
+    if (!selectedEvent) {
+      return;
+    }
+
+    const currentActivities = normalizeActivities(selectedEvent.activities, selectedEvent.title, selectedEvent.desc);
+    const nextActivities = currentActivities.map((activity, index) =>
+      index === activityIndex ? { ...activity, [field]: value } : activity,
+    );
+
+    persistEventPatch(selectedEvent.id, {
+      activities: nextActivities,
+      desc: nextActivities[0]?.description || "No description provided.",
+    });
+  };
+
+  const adjustSelectedActivitySetupCount = (activityIndex, delta) => {
+    if (!selectedEvent) {
+      return;
+    }
+
+    const currentActivities = normalizeActivities(selectedEvent.activities, selectedEvent.title, selectedEvent.desc);
+    const targetActivity = currentActivities[activityIndex];
+
+    if (!targetActivity) {
+      return;
+    }
+
+    updateSelectedActivityField(
+      activityIndex,
+      "setupCount",
+      Math.max(1, Number(targetActivity.setupCount || 1) + delta),
+    );
+  };
+
+  const addSelectedActivity = () => {
+    if (!selectedEvent) {
+      return;
+    }
+
+    setEditingActivityNameIndex(normalizeActivities(selectedEvent.activities, selectedEvent.title, selectedEvent.desc).length);
+    setEditingActivityDescriptionIndex(normalizeActivities(selectedEvent.activities, selectedEvent.title, selectedEvent.desc).length);
+
+    const nextActivities = [
+      ...normalizeActivities(selectedEvent.activities, selectedEvent.title, selectedEvent.desc),
+      { name: "", description: "", setupCount: 1 },
+    ];
+
+    persistEventPatch(selectedEvent.id, { activities: nextActivities });
+  };
+
+  const deleteSelectedActivity = (activityIndex) => {
+    if (!selectedEvent) {
+      return;
+    }
+
+    const currentActivities = normalizeActivities(selectedEvent.activities, selectedEvent.title, selectedEvent.desc);
+
+    if (currentActivities.length <= 1) {
+      window.alert("At least one activity is required.");
+      return;
+    }
+
+    const nextActivities = currentActivities.filter((_, index) => index !== activityIndex);
+    persistEventPatch(selectedEvent.id, {
+      activities: nextActivities,
+      desc: nextActivities[0]?.description || "No description provided.",
+    });
   };
 
   const updateReviewAnswer = (index, value) => {
@@ -963,6 +2143,22 @@ function App() {
     );
   };
 
+  const updateDetailDraftReviewerName = (slotIndex, value) => {
+    setDetailDrafts((currentDrafts) =>
+      currentDrafts.map((draft, draftIndex) =>
+        draftIndex === slotIndex ? { ...draft, reviewerName: value } : draft,
+      ),
+    );
+  };
+
+  const updateDetailDraftRemark = (slotIndex, value) => {
+    setDetailDrafts((currentDrafts) =>
+      currentDrafts.map((draft, draftIndex) =>
+        draftIndex === slotIndex ? { ...draft, remark: value } : draft,
+      ),
+    );
+  };
+
   const updateFeedbackDraftAnswer = (slotIndex, questionIndex, value) => {
     setFeedbackDrafts((currentDrafts) =>
       currentDrafts.map((draft, draftIndex) =>
@@ -991,6 +2187,51 @@ function App() {
           : draft,
       ),
     );
+  };
+
+  const updateFeedbackDraftReviewerName = (slotIndex, value) => {
+    setFeedbackDrafts((currentDrafts) =>
+      currentDrafts.map((draft, draftIndex) =>
+        draftIndex === slotIndex ? { ...draft, reviewerName: value } : draft,
+      ),
+    );
+  };
+
+  const updateFeedbackDraftRemark = (slotIndex, value) => {
+    setFeedbackDrafts((currentDrafts) =>
+      currentDrafts.map((draft, draftIndex) =>
+        draftIndex === slotIndex ? { ...draft, remark: value } : draft,
+      ),
+    );
+  };
+
+  const startEditingQuestions = () => {
+    setQuestionDrafts(reviewQuestions);
+    setIsEditingQuestions(true);
+  };
+
+  const cancelEditingQuestions = () => {
+    setQuestionDrafts(reviewQuestions);
+    setIsEditingQuestions(false);
+  };
+
+  const updateQuestionDraft = (questionIndex, value) => {
+    setQuestionDrafts((currentQuestions) =>
+      currentQuestions.map((question, index) => (index === questionIndex ? value : question)),
+    );
+  };
+
+  const saveQuestionDrafts = () => {
+    const nextQuestions = questionDrafts.map((question) => question.trim());
+
+    if (nextQuestions.some((question) => !question)) {
+      window.alert("Please fill every question before saving.");
+      return;
+    }
+
+    setReviewQuestions(nextQuestions);
+    setQuestionDrafts(nextQuestions);
+    setIsEditingQuestions(false);
   };
 
   const submitReview = async (overrideEventId) => {
@@ -1066,16 +2307,19 @@ function App() {
     }
 
     const draft = detailDrafts[slotIndex];
-    const completedAnswers = draft.answers.map((answer) => answer.trim());
+    const reviewerLabel = REVIEWER_ROLES[slotIndex] ?? `Reviewer ${slotIndex + 1}`;
+    const author = draft.reviewerName.trim() || reviewerLabel;
     const completedRatings = draft.questionRatings;
+    const completedAnswers = draft.answers.map((answer) => answer.trim());
+    const remark = draft.remark.trim();
 
     if (completedAnswers.some((answer) => !answer)) {
-      window.alert(`Please answer all questions for Reviewer ${slotIndex + 1}.`);
+      window.alert(`Please answer all feedback questions for ${reviewerLabel}.`);
       return;
     }
 
     if (completedRatings.some((rating) => !rating)) {
-      window.alert(`Please give a star rating for every question for Reviewer ${slotIndex + 1}.`);
+      window.alert(`Please give a star rating for every question for ${reviewerLabel}.`);
       return;
     }
 
@@ -1083,13 +2327,14 @@ function App() {
       completedRatings.reduce((total, rating) => total + rating, 0) / completedRatings.length;
 
     const newReview = {
-      author: `Reviewer ${slotIndex + 1}`,
-      initials: `R${slotIndex + 1}`,
-      avatar: ["a", "b", "c"][slotIndex] ?? "a",
+      author,
+      initials: getInitials(author),
+      avatar: getAvatarTone(author),
       rating: Math.round(averageQuestionRating),
       reviewSlot: slotIndex,
       questionRatings: completedRatings,
       answers: completedAnswers,
+      remark,
     };
 
     const nextReviews = [...selectedEvent.reviews];
@@ -1110,17 +2355,17 @@ function App() {
         updateEventInState(savedEvent);
         setSyncError("");
       } catch (error) {
-        reportSyncError(`Could not save Reviewer ${slotIndex + 1} to Supabase: ${error.message}`);
+        reportSyncError(`Could not save ${reviewerLabel} to Supabase: ${error.message}`);
         return;
       }
     }
 
     setDetailDrafts((currentDrafts) =>
       currentDrafts.map((draftItem, draftIndex) =>
-        draftIndex === slotIndex ? createEmptyDetailDraft() : draftItem,
+        draftIndex === slotIndex ? createEmptyDetailDraft(slotIndex) : draftItem,
       ),
     );
-    setReviewSuccess(`Reviewer ${slotIndex + 1} review submitted.`);
+    setReviewSuccess(`${reviewerLabel} review submitted.`);
   };
 
   const submitFeedbackReview = async (slotIndex) => {
@@ -1129,16 +2374,19 @@ function App() {
     }
 
     const draft = feedbackDrafts[slotIndex];
-    const completedAnswers = draft.answers.map((answer) => answer.trim());
+    const reviewerLabel = REVIEWER_ROLES[slotIndex] ?? `Reviewer ${slotIndex + 1}`;
+    const author = draft.reviewerName.trim() || reviewerLabel;
     const completedRatings = draft.questionRatings;
+    const completedAnswers = draft.answers.map((answer) => answer.trim());
+    const remark = draft.remark.trim();
 
     if (completedAnswers.some((answer) => !answer)) {
-      window.alert(`Please answer all questions for Reviewer ${slotIndex + 1}.`);
+      window.alert(`Please answer all feedback questions for ${reviewerLabel}.`);
       return;
     }
 
     if (completedRatings.some((rating) => !rating)) {
-      window.alert(`Please give a star rating for every question for Reviewer ${slotIndex + 1}.`);
+      window.alert(`Please give a star rating for every question for ${reviewerLabel}.`);
       return;
     }
 
@@ -1146,13 +2394,14 @@ function App() {
       completedRatings.reduce((total, rating) => total + rating, 0) / completedRatings.length;
 
     const newReview = {
-      author: `Reviewer ${slotIndex + 1}`,
-      initials: `R${slotIndex + 1}`,
-      avatar: ["a", "b", "c"][slotIndex] ?? "a",
+      author,
+      initials: getInitials(author),
+      avatar: getAvatarTone(author),
       rating: Math.round(averageQuestionRating),
       reviewSlot: slotIndex,
-      questionRatings: completedRatings,
+      questionRatings: [...completedRatings],
       answers: completedAnswers,
+      remark,
     };
 
     const nextReviews = [...feedbackSelectedEvent.reviews];
@@ -1165,25 +2414,66 @@ function App() {
     }
 
     const updatedEvent = { ...feedbackSelectedEvent, reviews: nextReviews };
+    const remainingOpenSlots = getReviewerSlots(nextReviews).filter((review) => !review).length;
     updateEventInState(updatedEvent);
 
     if (isSupabaseConfigured && supabase) {
       try {
         const savedEvent = await syncEventRecord(updatedEvent);
         updateEventInState(savedEvent);
+        setSelectedReviewEventId(String(savedEvent.id));
+        setReviewForm((current) => ({ ...current, eventId: String(savedEvent.id) }));
         setSyncError("");
       } catch (error) {
-        reportSyncError(`Could not save Reviewer ${slotIndex + 1} to Supabase: ${error.message}`);
+        reportSyncError(`Could not save ${reviewerLabel} to Supabase: ${error.message}`);
         return;
       }
+    } else {
+      setSelectedReviewEventId(String(feedbackSelectedEvent.id));
     }
 
     setFeedbackDrafts((currentDrafts) =>
       currentDrafts.map((draftItem, draftIndex) =>
-        draftIndex === slotIndex ? createEmptyDetailDraft() : draftItem,
+        draftIndex === slotIndex ? createEmptyDetailDraft(slotIndex) : draftItem,
       ),
     );
-    setReviewSuccess(`Reviewer ${slotIndex + 1} review submitted.`);
+    setReviewSuccess("Thank you, your response is submitted.");
+    setActivePage("feedback");
+    setIsFeedbackFormOpen(remainingOpenSlots > 0);
+  };
+
+  const deleteReviewFromEvent = async (eventId, reviewToDelete) => {
+    const targetEvent = events.find((event) => event.id === eventId);
+
+    if (!targetEvent || !reviewToDelete) {
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this review?");
+    if (!confirmed) {
+      return;
+    }
+
+    const nextReviews = targetEvent.reviews.filter((review) => review !== reviewToDelete);
+    const updatedEvent = { ...targetEvent, reviews: nextReviews };
+    updateEventInState(updatedEvent);
+
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    try {
+      const savedEvent = await syncEventRecord(updatedEvent);
+      updateEventInState(savedEvent);
+      setSyncError("");
+    } catch (error) {
+      if (isSupabaseNetworkError(error)) {
+        setSyncError(getSupabaseOfflineMessage());
+        return;
+      }
+
+      reportSyncError(`Could not delete the review: ${error.message}`);
+    }
   };
 
   const handleMediaUpload = async (event, overrideEventId) => {
@@ -1220,7 +2510,8 @@ function App() {
       uploadBatch = await persistUploadedFiles(targetEvent, acceptedFiles);
       setSyncError("");
     } catch (error) {
-      reportSyncError(`Could not upload files to Supabase: ${error.message}`);
+      reportSyncError(getSupabaseActionErrorMessage("Could not upload files to Supabase", error));
+      event.target.value = "";
       return;
     }
 
@@ -1272,13 +2563,16 @@ function App() {
       uploadBatch = await persistUploadedFiles(selectedEvent, pendingEventMediaFiles);
       setSyncError("");
     } catch (error) {
-      reportSyncError(`Could not upload files to Supabase: ${error.message}`);
+      reportSyncError(getSupabaseActionErrorMessage("Could not upload files to Supabase", error));
       return;
     }
 
     setMediaItems((currentItems) => [...uploadBatch, ...currentItems]);
     await persistEventPatch(selectedEvent.id, { photos: selectedEvent.photos + uploadBatch.length });
     setPendingEventMediaFiles([]);
+    if (eventDetailMediaInputRef.current) {
+      eventDetailMediaInputRef.current.value = "";
+    }
     setMediaSuccess(
       `${uploadBatch.length} file${uploadBatch.length !== 1 ? "s" : ""} uploaded for ${selectedEvent.title}.`,
     );
@@ -1324,7 +2618,7 @@ function App() {
       uploadBatch = await persistUploadedFiles(feedbackSelectedEvent, pendingFeedbackMediaFiles);
       setSyncError("");
     } catch (error) {
-      reportSyncError(`Could not upload files to Supabase: ${error.message}`);
+      reportSyncError(getSupabaseActionErrorMessage("Could not upload files to Supabase", error));
       return;
     }
 
@@ -1333,6 +2627,9 @@ function App() {
       photos: feedbackSelectedEvent.photos + uploadBatch.length,
     });
     setPendingFeedbackMediaFiles([]);
+    if (feedbackMediaInputRef.current) {
+      feedbackMediaInputRef.current.value = "";
+    }
     setMediaSuccess(
       `${uploadBatch.length} file${uploadBatch.length !== 1 ? "s" : ""} uploaded for ${feedbackSelectedEvent.title}.`,
     );
@@ -1344,44 +2641,169 @@ function App() {
       return;
     }
 
-    const confirmed = window.confirm(`Delete "${targetItem.label}" from ${targetItem.event}?`);
+    const confirmed = window.confirm("Delete this media item?");
     if (!confirmed) {
       return;
     }
 
-    if (!isSupabaseConfigured && targetItem.sourceType === "upload" && targetItem.url) {
-      URL.revokeObjectURL(targetItem.url);
-    }
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        if (targetItem.storagePath) {
-          const { error: storageError } = await supabase.storage
-            .from(SUPABASE_BUCKET)
-            .remove([targetItem.storagePath]);
-
-          if (storageError) {
-            throw storageError;
-          }
-        }
-
-        const { error: deleteError } = await supabase.from("media_items").delete().eq("id", mediaId);
-        if (deleteError) {
-          throw deleteError;
-        }
-
-        setSyncError("");
-      } catch (error) {
-        reportSyncError(`Could not delete the file from Supabase: ${error.message}`);
-        return;
-      }
-    }
+    const targetEvent = events.find((event) => event.id === targetItem.eventId);
+    const nextPhotoCount = Math.max(0, Number(targetEvent?.photos ?? 0) - 1);
 
     setMediaItems((currentItems) => currentItems.filter((item) => item.id !== mediaId));
-    await persistEventPatch(targetItem.eventId, {
-      photos: Math.max(0, (events.find((item) => item.id === targetItem.eventId)?.photos ?? 0) - 1),
+    setSelectedMediaIds((currentIds) => currentIds.filter((id) => String(id) !== String(mediaId)));
+    if (previewMediaItem && String(previewMediaItem.id) === String(mediaId)) {
+      setPreviewMediaItem(null);
+    }
+
+    if (targetEvent) {
+      updateEventInState({ ...targetEvent, photos: nextPhotoCount });
+    }
+
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    try {
+      const { error: mediaDeleteError } = await supabase.from("media_items").delete().eq("id", mediaId);
+      if (mediaDeleteError) {
+        throw mediaDeleteError;
+      }
+
+      if (targetItem.storagePath) {
+        const { error: storageError } = await supabase.storage.from(SUPABASE_BUCKET).remove([targetItem.storagePath]);
+        if (storageError) {
+          throw storageError;
+        }
+      }
+
+      if (targetEvent) {
+        const savedEvent = await syncEventRecord({ ...targetEvent, photos: nextPhotoCount });
+        updateEventInState(savedEvent);
+      }
+
+      setSyncError("");
+    } catch (error) {
+      if (isSupabaseNetworkError(error)) {
+        setSyncError(getSupabaseOfflineMessage());
+        return;
+      }
+
+      reportSyncError(`Could not delete the media item: ${error.message}`);
+    }
+  };
+
+  const openMediaPreview = (photo, options = {}) => {
+    if (photo.sourceType === "upload" && photo.url) {
+      setPreviewMediaItem({ ...photo, allowDownload: options.allowDownload ?? true });
+    }
+  };
+
+  const downloadMediaItem = (photo) => {
+    if (!photo.url) {
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = photo.url;
+    link.download = photo.label || `${photo.type === "video" ? "video" : "photo"}-${photo.id}`;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const downloadMediaItems = (items) => {
+    items.filter((item) => item.url).forEach((item, index) => {
+      window.setTimeout(() => downloadMediaItem(item), index * 120);
     });
-    setMediaSuccess(`"${targetItem.label}" was removed from ${targetItem.event}.`);
+  };
+
+  const getSelectedVisibleMediaItems = (items) =>
+    items.filter((item) => selectedMediaIds.includes(String(item.id)) && item.url);
+
+  const getDownloadableMediaItems = (items) => {
+    const selectedItems = getSelectedVisibleMediaItems(items);
+    return selectedItems.length ? selectedItems : items.filter((item) => item.url);
+  };
+
+  const toggleMediaSelection = (mediaId) => {
+    const id = String(mediaId);
+    setSelectedMediaIds((currentIds) =>
+      currentIds.includes(id) ? currentIds.filter((currentId) => currentId !== id) : [...currentIds, id],
+    );
+  };
+
+  const toggleAllVisibleMedia = (items) => {
+    const visibleIds = items.filter((item) => item.url).map((item) => String(item.id));
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedMediaIds.includes(id));
+
+    setSelectedMediaIds((currentIds) => {
+      if (allSelected) {
+        return currentIds.filter((id) => !visibleIds.includes(id));
+      }
+
+      return Array.from(new Set([...currentIds, ...visibleIds]));
+    });
+  };
+
+  const renderMediaThumb = (photo, options = {}) => {
+    const { selectable = true, allowPreviewDownload = true } = options;
+    let mediaPreview;
+    const isSelected = selectedMediaIds.includes(String(photo.id));
+
+    if (photo.sourceType === "upload") {
+      if (photo.type === "video") {
+        mediaPreview = (
+          <button
+            type="button"
+            className="photo-preview-button"
+            onClick={() => openMediaPreview(photo, { allowDownload: allowPreviewDownload })}
+            aria-label={`View ${photo.label} larger`}
+          >
+            <video className="photo-thumb media-preview" preload="metadata" muted>
+              <source src={photo.url} />
+            </video>
+          </button>
+        );
+      } else {
+        mediaPreview = (
+          <button
+            type="button"
+            className="photo-preview-button"
+            onClick={() => openMediaPreview(photo, { allowDownload: allowPreviewDownload })}
+            aria-label={`View ${photo.label} larger`}
+          >
+            <img className="photo-thumb media-preview" src={photo.url} alt={photo.label} />
+          </button>
+        );
+      }
+    } else {
+      mediaPreview = (
+        <div className={`photo-thumb ${photo.tone}`}>
+          <span>{photo.label}</span>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {selectable && photo.url && (
+          <button
+            type="button"
+            className={`media-select-toggle ${isSelected ? "is-selected" : ""}`}
+            aria-pressed={isSelected}
+            aria-label={`${isSelected ? "Deselect" : "Select"} ${photo.label}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleMediaSelection(photo.id);
+            }}
+          >
+            {isSelected ? "✓" : ""}
+          </button>
+        )}
+        {mediaPreview}
+      </>
+    );
   };
 
   const triggerStarBadge = (event, badgeId) => {
@@ -1398,110 +2820,378 @@ function App() {
     }, 420);
   };
 
-  const connectionTone = syncError
-    ? "warning"
-    : isSyncing
-      ? "loading"
-      : isSupabaseConfigured
-        ? "live"
-        : "demo";
-  const connectionMessage = syncError
-    ? syncError
-    : isSyncing
-      ? "Syncing with Supabase..."
-      : isSupabaseConfigured
-        ? "Live Supabase mode is enabled. Changes here should persist across refreshes and deployments."
-        : "Demo mode: Netlify is missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY, so the app is showing local sample data.";
+  const openFeedbackFormForEvent = (eventId, options = {}) => {
+    const { returnPage = activePage === "eventDetail" ? "eventDetail" : "feedback" } = options;
+    setReviewSuccess("");
+    setMediaSuccess("");
+    setIsEditingQuestions(false);
+    setPendingFeedbackMediaFiles([]);
+    if (feedbackMediaInputRef.current) {
+      feedbackMediaInputRef.current.value = "";
+    }
+    setFeedbackDrafts(Array.from({ length: 3 }, (_, index) => createEmptyDetailDraft(index)));
+    setSelectedEventId(String(eventId));
+    setFeedbackReturnPage(returnPage);
+    setReviewForm((current) => ({ ...current, eventId: String(eventId) }));
+    setIsFeedbackFormOpen(true);
+    setActivePage("feedback");
+  };
+
+  const handleDomainLogin = (event) => {
+    event.preventDefault();
+    const normalizedEmail = loginEmail.trim().toLowerCase();
+
+    if (!isAllowedCompanyEmail(normalizedEmail)) {
+      setLoginError(`Only ${ALLOWED_SIGNIN_EMAIL} can sign in.`);
+      return;
+    }
+
+    setAccessEmail(normalizedEmail);
+    setLoginEmail(normalizedEmail);
+    setLoginError("");
+  };
+
+  const handleLogout = () => {
+    setAccessEmail("");
+    setLoginEmail("");
+    setLoginError("");
+    setIsAdminUnlocked(false);
+    setAdminPasscode("");
+    setAdminError("");
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(ADMIN_ACCESS_STORAGE_KEY);
+    }
+  };
+
+  const openDatePicker = (event) => {
+    const input = event.currentTarget.parentElement?.querySelector("input");
+    if (!input) {
+      return;
+    }
+
+    event.preventDefault();
+    input.focus();
+    input.click();
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+    }
+  };
+
+  if (!accessEmail) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-card">
+          <img className="auth-logo" src={craftechLogo} alt="Craftech360" />
+          <span className="auth-kicker">Internal access</span>
+          <h1>Sign in with the approved account</h1>
+          <p>
+            Access is limited to the approved account so the live event data stays private and controlled.
+          </p>
+          <form className="auth-form" onSubmit={handleDomainLogin}>
+            <label htmlFor="companyEmail">Work email</label>
+            <input
+              id="companyEmail"
+              type="email"
+              value={loginEmail}
+              placeholder={ALLOWED_SIGNIN_EMAIL}
+              autoComplete="email"
+              onChange={(loginEvent) => {
+                setLoginEmail(loginEvent.target.value);
+                if (loginError) {
+                  setLoginError("");
+                }
+              }}
+            />
+            {loginError ? <div className="auth-error">{loginError}</div> : null}
+            <button type="submit" className="btn-primary auth-submit">
+              Continue
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
       <div className="app-backdrop" aria-hidden="true" />
-      <nav className="topbar">
-        <div className="brand-lockup">
-          <span className="brand-mark">ER</span>
-          <div>
-            <span className="nav-brand">EventReview</span>
-            <div className="nav-subtitle">Experience intelligence dashboard</div>
+      <aside className="sidebar-shell">
+        <nav className="topbar">
+          <div className="nav-logo-card">
+            <img src={craftechLogo} alt="Craftech360" />
           </div>
-        </div>
-        <div className="nav-links">
-          {["dashboard", "events", "reviews", "feedback", "photos"].map((page) => (
-            <button
-              key={page}
-              type="button"
-              className={`nav-btn ${activePage === page ? "active" : ""}`}
-              onClick={() => setActivePage(page)}
-            >
-              {page === "feedback" ? "Submit review" : page.charAt(0).toUpperCase() + page.slice(1)}
+          {!isPublicReviewMode && (
+            <div className="nav-links">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.page}
+                  type="button"
+                  className={`nav-btn ${
+                    activePage === item.page || (activePage === "eventDetail" && item.page === "events") ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    if (item.page === "feedback") {
+                      setIsFeedbackFormOpen(false);
+                      setReviewSuccess("");
+                      setMediaSuccess("");
+                    }
+                    setActivePage(item.page);
+                  }}
+                >
+                  <span className="nav-icon-tile">
+                    <NavIcon name={item.icon} />
+                  </span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="session-panel">
+            <span className="session-label">Signed in</span>
+            <strong className="session-email">{accessEmail}</strong>
+            <button type="button" className="btn-secondary session-logout" onClick={handleLogout}>
+              Sign out
             </button>
-          ))}
-        </div>
-        <button type="button" className="btn-primary nav-cta" onClick={openModal}>
-          New event
-        </button>
-      </nav>
-
-      <div className="page">
-        <div className={`sync-banner ${connectionTone}`}>
-          <strong>
-            {connectionTone === "live" && "Supabase connected."}
-            {connectionTone === "demo" && "Supabase not configured."}
-            {connectionTone === "loading" && "Connecting to Supabase."}
-            {connectionTone === "warning" && "Supabase needs attention."}
-          </strong>
-          <span>{connectionMessage}</span>
-        </div>
-      </div>
-
-      {activePage === "dashboard" && (
-        <main className="page">
-          <div className="section-header">
-            <div>
-              <div className="section-title">Dashboard</div>
-              <div className="section-caption">A simple summary of events, reviews, photos, and recent activity.</div>
-            </div>
           </div>
-          <div className="stats-grid">
-            <StatCard label="Events" value={events.length} tone="blue" />
-            <StatCard label="Reviews" value={totalReviews} tone="teal" />
-            <StatCard label="Photos" value={totalPhotos} tone="amber" />
-          </div>
+        </nav>
+      </aside>
 
-          <div className="section-header">
-            <div>
+      <div className="app-content">
+        {activePage === "dashboard" && (
+          <main className="page dashboard-page">
+          <section className="dashboard-panel glass-card">
+            <div className="dashboard-panel-top">
               <div className="section-title">Recent events</div>
-              <div className="section-caption">Latest event records.</div>
+              <form
+                className="dashboard-search"
+                role="search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setDashboardSearchQuery(dashboardSearchInput);
+                }}
+              >
+                <input
+                  type="search"
+                  value={dashboardSearchInput}
+                  placeholder="Search events"
+                  aria-label="Search dashboard events"
+                  onChange={(event) => {
+                    setDashboardSearchInput(event.target.value);
+                    setDashboardSearchQuery(event.target.value);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary dashboard-search-btn"
+                  onClick={openNewEventPage}
+                >
+                  <NavIcon name="plus" />
+                  Add a new event
+                </button>
+              </form>
+            </div>
+            <div className="dashboard-simple-list" aria-label="Recent events list">
+              <div className="dashboard-event-header" aria-hidden="true">
+                <span>Project ID</span>
+                <span>Event name</span>
+                <span>Event executor</span>
+                <span>Setup date</span>
+                <span>Event date</span>
+                <span>Location</span>
+              </div>
+              {dashboardEvents.length ? (
+                dashboardEvents.map((event) => (
+                  <button
+                    key={event.id}
+                    type="button"
+                    className="dashboard-event-row"
+                    onClick={() => openEventDetail(event.id)}
+                  >
+                    <span className="dashboard-event-meta dashboard-project-id" data-label="Project ID">
+                      {event.projectId || "-"}
+                    </span>
+                    <span className="dashboard-event-project" data-label="Event name">
+                      {event.title}
+                    </span>
+                    <span className="dashboard-event-meta" data-label="Event executor">
+                      {event.attendeeName || "-"}
+                    </span>
+                    <span className="dashboard-event-meta" data-label="Setup date">
+                      {formatDate(event.createdAt || event.date)}
+                    </span>
+                    <span className="dashboard-event-meta dashboard-event-date" data-label="Event date">
+                      {formatEventDateRange(event)}
+                    </span>
+                    <span className="dashboard-event-meta dashboard-event-location" data-label="Location">
+                      {event.loc || "-"}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="dashboard-empty-row">No matching events found.</div>
+              )}
+            </div>
+          </section>
+          </main>
+        )}
+
+        {activePage === "newEvent" && (
+          <main className="page new-event-page elevated-page">
+          <div className="section-header">
+            <div>
+              <div className="section-title">Add new event</div>
             </div>
           </div>
-          <div className="card-stack dashboard-card-stack">
-            {dashboardEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onOpen={openEventDetail}
-                compact
-                dashboardEditOnly
-                onEdit={openEditModal}
-              />
-            ))}
-          </div>
-        </main>
-      )}
 
-      {activePage === "events" && (
-        <main className="page">
+          <section className="review-spread-card event-form-page-card">
+            <div className="form-group">
+              <label htmlFor="new-title">Event name *</label>
+              <input
+                id="new-title"
+                type="text"
+                value={form.title}
+                placeholder="e.g. Annual Tech Summit"
+                onChange={(event) => setForm({ ...form, title: event.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="new-desc">Description</label>
+              <textarea
+                id="new-desc"
+                value={form.desc}
+                placeholder="Brief description of the event..."
+                onChange={(event) => setForm({ ...form, desc: event.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="new-projectId">Project ID</label>
+              <input
+                id="new-projectId"
+                type="text"
+                value={form.projectId}
+                placeholder={`e.g. ${PROJECT_ID_PREFIX}/001`}
+                onChange={(event) => setForm({ ...form, projectId: event.target.value })}
+              />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="new-salesPerson">Sales Person</label>
+                <input
+                  id="new-salesPerson"
+                  type="text"
+                  value={form.salesPerson}
+                  placeholder="e.g. Priya Shah"
+                  onChange={(event) => setForm({ ...form, salesPerson: event.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="new-createdAt">Setup Date</label>
+                <input
+                  id="new-createdAt"
+                  type="date"
+                  value={form.createdAt}
+                  onChange={(event) => setForm({ ...form, createdAt: event.target.value })}
+                />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="new-date">From date</label>
+                <input
+                  id="new-date"
+                  type="date"
+                  value={form.date}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      date: event.target.value,
+                      endDate: form.endDate && form.endDate >= event.target.value ? form.endDate : event.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="new-endDate">To date</label>
+                <input
+                  id="new-endDate"
+                  type="date"
+                  value={form.endDate}
+                  min={form.date}
+                  onChange={(event) => setForm({ ...form, endDate: event.target.value })}
+                />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="new-attendeeName">Event executor</label>
+                <input
+                  id="new-attendeeName"
+                  type="text"
+                  value={form.attendeeName}
+                  placeholder="e.g. Rohit Sharma"
+                  onChange={(event) => setForm({ ...form, attendeeName: event.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="new-loc">Location</label>
+                <input
+                  id="new-loc"
+                  type="text"
+                  value={form.loc}
+                  placeholder="e.g. Bengaluru Convention Centre"
+                  onChange={(event) => setForm({ ...form, loc: event.target.value })}
+                />
+              </div>
+            </div>
+            <div className="event-form-actions">
+              <button type="button" className="btn-cancel" onClick={cancelNewEventPage}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={saveEvent}>
+                Add event
+              </button>
+            </div>
+          </section>
+          </main>
+        )}
+
+        {activePage === "events" && (
+          <main className="page events-page elevated-page">
           <div className="section-header">
             <div>
               <div className="section-title">All events</div>
-              <div className="section-caption">Manage programme records, status, and event-level performance.</div>
             </div>
-            <button type="button" className="btn-primary" onClick={openModal}>
-              Add event
-            </button>
+            <div className="events-header-actions">
+              <form
+                className="dashboard-search events-search"
+                role="search"
+                onSubmit={(submitEvent) => {
+                  submitEvent.preventDefault();
+                  setEventsSearchQuery(eventsSearchInput);
+                }}
+              >
+                <input
+                  id="eventsSearchInput"
+                  type="search"
+                  value={eventsSearchInput}
+                  placeholder="Search events"
+                  aria-label="Search events"
+                  onChange={(changeEvent) => {
+                    const nextValue = changeEvent.target.value;
+                    setEventsSearchInput(nextValue);
+                    setEventsSearchQuery(nextValue);
+                  }}
+                />
+                <button type="button" className="btn-primary dashboard-search-btn" onClick={openNewEventPage}>
+                  <NavIcon name="plus" />
+                  Add event
+                </button>
+              </form>
+            </div>
           </div>
-          {events.length ? (
-            <div className="card-stack">
-              {events.map((event) => (
+          {filteredEvents.length ? (
+            <div className="card-stack events-list">
+              {filteredEvents.map((event) => (
                 <EventCard
                   key={event.id}
                   event={event}
@@ -1513,17 +3203,18 @@ function App() {
               ))}
             </div>
           ) : (
-            <div className="empty-state">No events yet. Use Add event to create your first record.</div>
+            <div className="empty-state">
+              {eventsSearchTerm ? "No events match your search." : "No events yet. Use Add event to create your first record."}
+            </div>
           )}
-        </main>
-      )}
+          </main>
+        )}
 
-      {activePage === "reviews" && (
-        <main className="page wide-page">
+        {activePage === "reviews" && (
+          <main className="page wide-page reviews-page elevated-page">
           <div className="section-header">
             <div>
               <div className="section-title">All reviews</div>
-              <div className="section-caption">Same two-table layout as the older accessible user view: one for ratings and one for comments.</div>
             </div>
           </div>
 
@@ -1533,541 +3224,761 @@ function App() {
                 <div className="panel-heading">
                   <div>
                     <div className="panel-title">Select event</div>
-                    <div className="panel-subtitle">Choose an event to compare three reviewer responses side by side.</div>
+                    {selectedReviewEvent && (
+                      <div className="reviews-selected-meta">
+                        <span>{`BD: ${selectedReviewEvent.title || "-"}`}</span>
+                        <span>{`Executor: ${selectedReviewEvent.attendeeName || "-"}`}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="event-chip-row">
-                  {eventsWithReviews.map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      className={`event-chip ${String(event.id) === String(selectedReviewEvent?.id) ? "active" : ""}`}
-                      onClick={() => setSelectedReviewEventId(String(event.id))}
-                    >
-                      {event.title}
-                    </button>
-                  ))}
+                <div className="form-group review-event-select">
+                  <select
+                    id="reviewEventSelect"
+                    value={selectedReviewEventId}
+                    onChange={(event) => setSelectedReviewEventId(event.target.value)}
+                  >
+                    {eventsWithReviews.map((event) => (
+                      <option key={event.id} value={event.id}>
+                        {event.title}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </section>
 
               {selectedReviewEvent && (
-                <section className="reviews-row">
-                  <ReadOnlyReviewSplitTables
-                    event={selectedReviewEvent}
-                    reviewUsers={selectedReviewUsers}
-                    activeStarBadge={activeStarBadge}
-                    onActivateStarBadge={triggerStarBadge}
-                  />
-
-                  <aside className="reviews-side-panel">
-                    <div className="side-panel-header">
-                      <div className="side-panel-title">Ratings overview</div>
-                      <div className="side-panel-subtitle">Professional event summary</div>
-                    </div>
-                    <div className="rating-summary-card">
-                      <div className="rating-summary-label">Average rating</div>
-                      <div className="rating-summary-value">
-                        {getAverageRating(selectedReviewEvent.reviews).toFixed(1)}
-                        <span className="rating-summary-scale">/5</span>
-                      </div>
-                      <div className="rating-summary-note">Based on {selectedReviewEvent.reviews.length} verified reviewers</div>
-                    </div>
-                    <div className="side-review-list">
-                      {selectedReviewUsers.filter(Boolean).map((review, reviewIndex) => (
-                        <article key={`${selectedReviewEvent.id}-${reviewIndex}-old-summary`} className="side-review-card rating-card">
-                          <div className="side-review-top">
-                            <div className={`avatar ${review.avatar}`}>{review.initials}</div>
-                            <div>
-                              <div className="reviewer-head-name">{review.author}</div>
-                              <div className="reviewer-head-stars">
-                                <InteractiveRatingBadge
-                                  badgeId={`old-reviews-summary-${selectedReviewEvent.id}-${reviewIndex}`}
-                                  rating={review.rating}
-                                  text={`${review.rating} out of 5`}
-                                  activeStarBadge={activeStarBadge}
-                                  onActivate={triggerStarBadge}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          <div className="rating-bar-track">
-                            <div className="rating-bar-fill" style={{ width: `${(review.rating / 5) * 100}%` }} />
-                          </div>
-                          <p className="side-review-text">{review.answers[0]}</p>
-                        </article>
-                      ))}
-                    </div>
-                  </aside>
-                </section>
+                <>
+                  <section className="reviews-table-panel">
+                    <ReadOnlyReviewSplitTables
+                      event={selectedReviewEvent}
+                      reviewUsers={selectedReviewUsers}
+                      feedbackQuestions={FEEDBACK_QUESTIONS}
+                      ratingQuestions={reviewQuestions}
+                      onDeleteReview={(review) => deleteReviewFromEvent(selectedReviewEvent.id, review)}
+                      activeStarBadge={activeStarBadge}
+                      onActivateStarBadge={triggerStarBadge}
+                    />
+                  </section>
+                </>
               )}
             </div>
           ) : (
             <div className="empty-state">No reviews yet.</div>
           )}
-        </main>
-      )}
+          </main>
+        )}
 
-      {activePage === "eventDetail" && selectedEvent && (
-        <main className="page">
-          <div className="section-header">
-            <div>
-              <div className="section-title">{selectedEvent.title}</div>
-              <div className="section-caption">Event details and reviewer comparison.</div>
-            </div>
-            <button type="button" className="btn-secondary" onClick={() => setActivePage("dashboard")}>
-              Back to dashboard
-            </button>
-          </div>
+        {activePage === "eventDetail" && selectedEvent && (
+          <main className="page elevated-page event-detail-page event-detail-layout">
+          <div className="event-detail-desktop-shell">
+            <div className="event-detail-left-board">
+              <section className="event-detail-hero">
+                <div className="event-detail-hero-main">
+                  <div className="event-detail-hero-top">
+                    <button
+                      type="button"
+                      className="btn-secondary event-detail-back-btn back-nav-btn back-nav-btn-compact"
+                      onClick={() => setActivePage("events")}
+                      aria-label="Back to events"
+                      title="Back to events"
+                    >
+                      <NavIcon name="arrowLeft" />
+                    </button>
+                    <div className="event-detail-hero-copy">
+                      <h1 className="event-detail-title">{selectedEvent.title}</h1>
+                    </div>
+                  </div>
 
-          <section className="review-spread-card glass-card">
-            <div className="detail-header-grid">
-              <div className="detail-header-item">
-                <span className="detail-header-label">Date</span>
-                <strong>{formatDate(selectedEvent.date)}</strong>
-              </div>
-              <div className="detail-header-item">
-                <span className="detail-header-label">Location</span>
-                <strong>{selectedEvent.loc}</strong>
-              </div>
-              <div className="detail-header-item">
-                <span className="detail-header-label">Project Title</span>
-                <textarea
-                  className="detail-header-input"
-                  value={selectedEvent.projectTitle || ""}
-                  placeholder="Enter project title"
-                  onChange={(event) => updateSelectedEventField("projectTitle", event.target.value)}
-                />
-              </div>
-              <div className="detail-header-item">
-                <span className="detail-header-label">Attender Name</span>
-                <textarea
-                  className="detail-header-input"
-                  value={selectedEvent.attendeeName || ""}
-                  placeholder="Enter attender name"
-                  onChange={(event) => updateSelectedEventField("attendeeName", event.target.value)}
-                />
-              </div>
-            </div>
-          </section>
+                <div className="event-detail-feature-card">
+                  <div className="event-detail-feature-visual">
+                    <div className="event-detail-feature-poster">
+                      <div className="event-detail-feature-orb event-detail-feature-orb-one" />
+                      <div className="event-detail-feature-orb event-detail-feature-orb-two" />
+                        <div className="event-detail-feature-grid" />
+                        <div className="event-detail-feature-copy">
+                          <span>{selectedEvent.title}</span>
+                          <strong>{new Date(selectedEvent.date || Date.now()).getFullYear()}</strong>
+                        </div>
+                      </div>
+                    </div>
 
-          <section className="review-spread-card glass-card">
-            <div className="panel-heading">
-              <div>
-                <div className="panel-title">Description</div>
-                <div className="panel-subtitle">Event overview.</div>
-              </div>
-            </div>
-            <p className="detail-description">{selectedEvent.desc}</p>
-          </section>
+                    <div className="event-detail-feature-body">
+                      <div className="event-detail-feature-head">
+                        <div className="event-detail-feature-head-copy">
+                          <div className="event-detail-hero-meta">
+                            <span>{selectedEvent.projectId || "Project ID pending"}</span>
+                          </div>
+                          <h2 className="event-detail-feature-title">{selectedEvent.title}</h2>
+                          <div className="event-detail-feature-meta">
+                            <span>{formatShortEventDateRange(selectedEvent)}</span>
+                            <span>{`${selectedEventCompletedReviews}/3 reviews submitted`}</span>
+                          </div>
+                        </div>
 
-          <section className="review-spread-card glass-card">
-            <div className="panel-heading">
-              <div>
-                <div className="panel-title">Reviews</div>
-                <div className="panel-subtitle">A cleaner summary of ratings and submitted answers for this event.</div>
-              </div>
-            </div>
-            <div className="detail-review-stack">
-              {!selectedEvent.reviews.length && (
-                <div className="detail-empty-note">
-                  No reviews yet. The tables below are ready and will fill as Reviewer 1, Reviewer 2, and Reviewer 3 submit responses.
+                        <div className="event-detail-feature-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary event-detail-edit-btn"
+                            onClick={() => openEditModal(selectedEvent)}
+                          >
+                            <NavIcon name="edit" />
+                            Edit Event
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </section>
+
+              <div className="event-detail-workspace">
+                <div className="event-detail-main-panel">
+                  <div className="event-detail-tabbar">
+                    {[
+                      { id: "overview", label: "Overview" },
+                      { id: "activities", label: "Activities" },
+                      { id: "reviews", label: "Reviews" },
+                      { id: "media", label: "Media" },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        className={`event-detail-tab-button ${eventDetailTab === tab.id ? "is-active" : ""}`}
+                        onClick={() => setEventDetailTab(tab.id)}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+              {eventDetailTab === "overview" && (
+                <section className="event-detail-panel-card event-detail-overview-dashboard">
+                  <article className="event-detail-dashboard-card event-detail-core-card event-detail-overview-only">
+                    <div className="event-detail-section-header">
+                      <div>
+                        <h2 className="event-detail-section-title">Event information</h2>
+                      </div>
+                    </div>
+
+                    <div className="event-detail-fields-grid event-detail-fields-grid-card">
+                      {[
+                        { label: "Project ID", value: selectedEvent.projectId || "Project ID pending", icon: "dashboard" },
+                        { label: "Event Name", value: selectedEvent.title || "Event name pending", icon: "star" },
+                        { label: "Executor", value: selectedEvent.attendeeName || "Executor pending", icon: "shield" },
+                        { label: "Sales Person", value: selectedEvent.salesPerson || "Sales person pending", icon: "message" },
+                        { label: "Setup Date", value: selectedEvent.createdAt || selectedEvent.date ? formatDate(selectedEvent.createdAt || selectedEvent.date) : "Setup date pending", icon: "calendar" },
+                        { label: "Location", value: selectedEvent.loc || "Location not added", icon: "image" },
+                      ].map((item) => (
+                        <div key={item.label} className="event-detail-info-card">
+                          <span className="event-detail-field-label event-detail-field-label-with-icon">
+                            <span className="event-detail-info-icon" aria-hidden="true">
+                              <NavIcon name={item.icon} />
+                            </span>
+                            {item.label}
+                          </span>
+                          <div className="event-detail-info-value">{item.value}</div>
+                        </div>
+                      ))}
+
+                      <div className="event-detail-info-card event-detail-info-card-wide">
+                        <span className="event-detail-field-label event-detail-field-label-with-icon">
+                          <span className="event-detail-info-icon" aria-hidden="true">
+                            <NavIcon name="calendar" />
+                          </span>
+                          Event Date
+                        </span>
+                        <div className="event-detail-info-date">
+                          <div className="event-detail-info-value">{selectedEvent.date ? formatDate(selectedEvent.date) : "Start date pending"}</div>
+                          <span className="event-detail-date-join">to</span>
+                          <div className="event-detail-info-value">{selectedEvent.endDate || selectedEvent.date ? formatDate(selectedEvent.endDate || selectedEvent.date) : "End date pending"}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="event-detail-description-block">
+                      <span className="event-detail-field-label">Description</span>
+                      <p>{selectedEvent.desc || selectedEventActivities[0]?.description || "Add a concise event description here."}</p>
+                    </div>
+                  </article>
+                </section>
               )}
 
-              <div className="reviews-table-wrap detail-review-table-wrap">
-                  <div className="detail-table-section">
-                    <div className="detail-table-heading">
-                      <div className="ev-name">Ratings Table</div>
-                      <div className="ev-meta">5 questions with 3 reviewers shown across the same row.</div>
-                    </div>
-                    <table className="rev-table review-compare-table detail-split-table">
-                      <thead>
-                        <tr>
-                          <th className="q-num">#</th>
-                          <th className="question-heading">Question</th>
-                          {selectedEventTableUsers.map((review, reviewIndex) => (
-                            <th key={`${selectedEvent.id}-detail-head-${reviewIndex}`} className="reviewer-heading-cell">
-                              <div className="reviewer-heading">
-                                <div className={`avatar ${review?.avatar ?? "a"}`}>{review?.initials ?? `R${reviewIndex + 1}`}</div>
-                                <div>
-                                  <div className="reviewer-head-name">
-                                    {review
-                                      ? `Reviewer ${reviewIndex + 1}`
-                                      : `Reviewer ${reviewIndex + 1}`}
-                                  </div>
-                                  <div className="reviewer-label-muted">
-                                    {review
-                                      ? review.author
-                                      : "Waiting for input"}
-                                  </div>
-                                  {review ? (
-                                    <div className="reviewer-head-stars">
-                                      <InteractiveRatingBadge
-                                        badgeId={`${selectedEvent.id}-head-${reviewIndex}`}
-                                        rating={review.rating}
-                                        text={`${review.rating} out of 5`}
-                                        activeStarBadge={activeStarBadge}
-                                        onActivate={triggerStarBadge}
-                                      />
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {REVIEW_QUESTIONS.map((question, index) => (
-                          <tr key={`${selectedEvent.id}-${question}-detail-rating-row`}>
-                            <td className="q-num">{index + 1}</td>
-                            <td className="q-cell">{question}</td>
-                            {selectedEventTableUsers.map((review, reviewIndex) => (
-                              <td key={`${selectedEvent.id}-${reviewIndex}-${index}-detail-rating-cell`} className="answer-cell rating-only-cell">
-                                {review ? (
-                                  <InteractiveRatingBadge
-                                    badgeId={`${selectedEvent.id}-question-${reviewIndex}-${index}`}
-                                    rating={getQuestionRating(review, index)}
-                                    text={`${getQuestionRating(review, index)}/5`}
-                                    compact
-                                    activeStarBadge={activeStarBadge}
-                                    onActivate={triggerStarBadge}
-                                  />
-                                ) : (
-                                  <StarRatingInput
-                                    inputId={`${selectedEvent.id}-${reviewIndex}-${index}-detail-input-rating`}
-                                    value={detailDrafts[reviewIndex].questionRatings[index]}
-                                    activeStarBadge={activeStarBadge}
-                                    onActivate={triggerStarBadge}
-                                    onChange={(value) => {
-                                      setReviewSuccess("");
-                                      updateDetailDraftRating(reviewIndex, index, value);
-                                    }}
-                                  />
-                                )}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="detail-table-gap" />
-
-                  <div className="detail-table-section">
-                    <div className="detail-table-heading">
-                      <div className="ev-name">Comments Table</div>
-                      <div className="ev-meta">The same 5 questions and the same 3 reviewers, with comments only.</div>
-                    </div>
-                    <table className="rev-table review-compare-table detail-split-table">
-                      <thead>
-                        <tr>
-                          <th className="q-num">#</th>
-                          <th className="question-heading">Question</th>
-                          {selectedEventTableUsers.map((review, reviewIndex) => (
-                            <th key={`${selectedEvent.id}-detail-comment-head-${reviewIndex}`} className="reviewer-heading-cell">
-                              <div className="reviewer-heading">
-                                <div className={`avatar ${review?.avatar ?? "a"}`}>{review?.initials ?? `R${reviewIndex + 1}`}</div>
-                                <div>
-                                  <div className="reviewer-head-name">
-                                    {review
-                                      ? `Reviewer ${reviewIndex + 1}`
-                                      : `Reviewer ${reviewIndex + 1}`}
-                                  </div>
-                                  <div className="reviewer-label-muted">
-                                    {review
-                                      ? review.author
-                                      : "Waiting for input"}
-                                  </div>
-                                </div>
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {REVIEW_QUESTIONS.map((question, index) => (
-                          <tr key={`${selectedEvent.id}-${question}-detail-comment-row`}>
-                            <td className="q-num">{index + 1}</td>
-                            <td className="q-cell">{question}</td>
-                            {selectedEventTableUsers.map((review, reviewIndex) => (
-                              <td key={`${selectedEvent.id}-${reviewIndex}-${index}-detail-comment-cell`} className="answer-cell">
-                                {review ? (
-                                  <div className="question-answer-copy">{review.answers[index] || "-"}</div>
-                                ) : (
-                                  <textarea
-                                    id={`event-detail-comment-${index}`}
-                                    className="entry-answer-input detail-comment-input"
-                                    value={detailDrafts[reviewIndex].answers[index]}
-                                    placeholder="Enter your comment..."
-                                    onChange={(event) => {
-                                      setReviewSuccess("");
-                                      updateDetailDraftAnswer(reviewIndex, index, event.target.value);
-                                    }}
-                                  />
-                                )}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              <div className="detail-review-submit">
-                {reviewSuccess && <div className="success-banner compact">{reviewSuccess}</div>}
-                <div className="detail-review-submit-grid">
-                  {selectedEventTableUsers.map((review, reviewIndex) =>
-                    review ? (
-                      <div key={`${selectedEvent.id}-submitted-${reviewIndex}`} className="detail-submit-state submitted">
-                        {`Reviewer ${reviewIndex + 1} submitted`}
+                  {eventDetailTab === "activities" && (
+                    <section className="event-detail-panel-card">
+                      <div className="event-detail-section-header event-detail-section-header-split">
+                        <button type="button" className="btn-primary" onClick={addSelectedActivity}>
+                          Add activity
+                        </button>
                       </div>
-                    ) : (
-                      <button
-                        key={`${selectedEvent.id}-submit-${reviewIndex}`}
-                        type="button"
-                        className="btn-primary"
-                        onClick={() => submitDetailReview(reviewIndex)}
-                      >
-                        {`Submit Reviewer ${reviewIndex + 1}`}
-                      </button>
-                    ),
+
+                      <div className="event-detail-activities-list">
+                        {selectedEventActivities.map((activity, index) => (
+                          <div
+                            key={`${selectedEvent.id}-activity-${index}`}
+                            className={`event-detail-activity-card ${editingActivityNameIndex === index || editingActivityDescriptionIndex === index ? "is-editing" : ""}`}
+                          >
+                            {(() => {
+                              const isEditingActivity =
+                                editingActivityNameIndex === index || editingActivityDescriptionIndex === index;
+
+                              return (
+                                <>
+                                  <div className="event-top event-detail-activity-top">
+                                    <div className="event-copy event-detail-activity-copy">
+                                      <div className="event-card-header event-detail-activity-header">
+                                        <div className="event-detail-activity-header-main">
+                                          <div className="event-detail-activity-heading-row">
+                                            {isEditingActivity ? (
+                                              <label className="event-detail-field event-detail-activity-name-field">
+                                                <span className="event-detail-field-label">Activity name</span>
+                                                <input
+                                                  className="event-detail-activity-input event-detail-activity-name event-title event-detail-activity-title-input"
+                                                  id={`activity-name-${index}`}
+                                                  type="text"
+                                                  value={activity.name}
+                                                  placeholder="Enter activity name"
+                                                  onChange={(event) => updateSelectedActivityField(index, "name", event.target.value)}
+                                                  autoFocus={editingActivityNameIndex === index}
+                                                />
+                                              </label>
+                                            ) : (
+                                              <div className="event-title event-detail-activity-heading">
+                                                {activity.name || "Enter activity name"}
+                                              </div>
+                                            )}
+                                          </div>
+                                          {!isEditingActivity && (
+                                            <div className="event-location-line event-detail-activity-subline">
+                                              <span>{`Setup: ${activity.setupCount}`}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {isEditingActivity ? (
+                                        <label className="event-detail-field">
+                                          <span className="event-detail-field-label">Description</span>
+                                          <textarea
+                                            className="event-detail-activity-input event-detail-activity-input-tall event-detail-activity-description"
+                                            id={`activity-description-${index}`}
+                                            value={activity.description}
+                                            placeholder="Enter activity description..."
+                                            onChange={(event) => updateSelectedActivityField(index, "description", event.target.value)}
+                                            autoFocus={editingActivityDescriptionIndex === index}
+                                          />
+                                        </label>
+                                      ) : shouldUseActivityDescriptionPreview(activity.description) ? (
+                                        <div className="event-detail-activity-description-block">
+                                          <div className="event-detail-activity-description-label">Description:</div>
+                                          <button
+                                            type="button"
+                                            className="event-desc event-detail-activity-description event-detail-activity-description-trigger"
+                                            onClick={() =>
+                                              setActivityDescriptionPreview({
+                                                name: activity.name || "Activity",
+                                                description: activity.description,
+                                                setupCount: activity.setupCount,
+                                              })
+                                            }
+                                          >
+                                            {activity.description}
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="event-detail-activity-description-block">
+                                          <div className="event-detail-activity-description-label">Description:</div>
+                                          <div className="event-desc event-detail-activity-description">
+                                            {activity.description || "Enter activity description..."}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="event-actions event-detail-activity-action">
+                                      {isEditingActivity ? (
+                                        <button
+                                          type="button"
+                                          className="btn-secondary event-detail-activity-edit-btn"
+                                          onClick={() => {
+                                            setEditingActivityNameIndex(null);
+                                            setEditingActivityDescriptionIndex(null);
+                                          }}
+                                        >
+                                          Done
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="btn-secondary event-detail-activity-edit-btn"
+                                          onClick={() => {
+                                            setEditingActivityNameIndex(index);
+                                            setEditingActivityDescriptionIndex(index);
+                                          }}
+                                        >
+                                          Edit
+                                        </button>
+                                      )}
+                                      <button type="button" className="btn-delete" onClick={() => deleteSelectedActivity(index)}>
+                                        Delete
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {isEditingActivity && (
+                                    <div className="event-detail-activity-footer">
+                                      <div className="event-detail-activity-side">
+                                        <label className="event-detail-field">
+                                          <span className="event-detail-field-label">Number of setups</span>
+                                          <div className="event-detail-setup-stepper">
+                                            <button
+                                              type="button"
+                                              className="event-detail-setup-stepper-btn"
+                                              aria-label="Decrease setups"
+                                              onClick={() => adjustSelectedActivitySetupCount(index, -1)}
+                                            >
+                                              -
+                                            </button>
+                                            <input
+                                              className="event-detail-activity-input event-detail-setup-input"
+                                              id={`activity-setup-${index}`}
+                                              type="number"
+                                              min="1"
+                                              value={activity.setupCount}
+                                              onFocus={(event) => {
+                                                if (String(event.target.value) === "1") {
+                                                  updateSelectedActivityField(index, "setupCount", "");
+                                                }
+                                              }}
+                                              onChange={(event) =>
+                                                updateSelectedActivityField(
+                                                  index,
+                                                  "setupCount",
+                                                  event.target.value === "" ? "" : Math.max(1, Number(event.target.value) || 1),
+                                                )
+                                              }
+                                              onBlur={(event) => {
+                                                if (event.target.value === "") {
+                                                  updateSelectedActivityField(index, "setupCount", 1);
+                                                }
+                                              }}
+                                            />
+                                            <button
+                                              type="button"
+                                              className="event-detail-setup-stepper-btn"
+                                              aria-label="Increase setups"
+                                              onClick={() => adjustSelectedActivitySetupCount(index, 1)}
+                                            >
+                                              +
+                                            </button>
+                                          </div>
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {eventDetailTab === "reviews" && (
+                    <section className="event-detail-panel-card">
+                      {selectedEvent.reviews.length ? (
+                        <>
+                          <section className="reviews-table-panel event-detail-submitted-reviews">
+                            <ReadOnlyReviewSplitTables
+                              event={selectedEvent}
+                              reviewUsers={selectedEventTableUsers}
+                              feedbackQuestions={FEEDBACK_QUESTIONS}
+                              ratingQuestions={reviewQuestions}
+                              onDeleteReview={(review) => deleteReviewFromEvent(selectedEvent.id, review)}
+                              activeStarBadge={activeStarBadge}
+                              onActivateStarBadge={triggerStarBadge}
+                              plainStars
+                              dashboardLayout
+                            />
+                          </section>
+                        </>
+                      ) : (
+                        <div className="event-detail-review-empty">
+                          <h3>No reviews submitted</h3>
+                          <p>Once the team submits feedback, the overall rating, remarks, feedback table, and rating table will appear here.</p>
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() => openFeedbackFormForEvent(selectedEvent.id)}
+                          >
+                            Add reviews
+                          </button>
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  {eventDetailTab === "media" && (
+                    <section className="event-detail-panel-card">
+                      <div className="event-detail-section-header">
+                        <div>
+                          <h2 className="event-detail-section-title">Upload photos or videos</h2>
+                        </div>
+                      </div>
+
+                      {mediaSuccess && <div className="success-banner compact">{mediaSuccess}</div>}
+
+                      <div className="event-detail-media-actions">
+                        <button
+                          type="button"
+                          className="event-detail-upload-button"
+                          onClick={() => {
+                            setMediaEventId(String(selectedEvent.id));
+                            eventDetailMediaInputRef.current?.click();
+                          }}
+                        >
+                          <span className="event-detail-upload-icon">+</span>
+                          <span>Add photos or videos</span>
+                        </button>
+                        <input
+                          ref={eventDetailMediaInputRef}
+                          id="event-detail-media"
+                          className="hidden-file-input"
+                          type="file"
+                          accept="image/*,video/*"
+                          multiple
+                          onClick={() => setMediaEventId(String(selectedEvent.id))}
+                          onChange={(event) => {
+                            setMediaEventId(String(selectedEvent.id));
+                            queueEventDetailMedia(event);
+                          }}
+                        />
+                        <button type="button" className="btn-primary" onClick={submitEventDetailMedia}>
+                          Submit
+                        </button>
+                      </div>
+
+                      {pendingEventMediaFiles.length > 0 && (
+                        <div className="event-detail-pending-files">
+                          {pendingEventMediaFiles.map((file) => (
+                            <div key={`${file.name}-${file.size}-${file.lastModified}`} className="event-detail-pending-file">
+                              {file.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {selectedEventMediaItems.length ? (
+                        <div className="event-detail-media-grid">
+                          {selectedEventMediaItems.map((photo) => (
+                            <div key={photo.id} className="photo-card">
+                              {renderMediaThumb(photo, { selectable: false, allowPreviewDownload: false })}
+                              <button
+                                type="button"
+                                className="btn-secondary media-delete-btn"
+                                onClick={() => deleteMediaItem(photo.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="event-detail-empty-panel">
+                          No photos or videos uploaded yet. Use the add option above.
+                        </div>
+                      )}
+                    </section>
                   )}
                 </div>
               </div>
-          </section>
-
-          <section className="review-spread-card glass-card">
-            <div className="panel-heading">
-              <div>
-                <div className="panel-title">Upload Photos or Videos</div>
-                <div className="panel-subtitle">Add media for this event and submit it from here.</div>
-              </div>
             </div>
 
-            {mediaSuccess && <div className="success-banner compact">{mediaSuccess}</div>}
-
-            <div className="event-upload-actions">
-              <label htmlFor="event-detail-media" className="upload-add-button">
-                <span className="upload-add-icon">+</span>
-                <span>Add photos or videos</span>
-              </label>
-              <input
-                id="event-detail-media"
-                className="hidden-file-input"
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                onClick={() => setMediaEventId(String(selectedEvent.id))}
-                onChange={(event) => {
-                  setMediaEventId(String(selectedEvent.id));
-                  queueEventDetailMedia(event);
-                }}
-              />
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={submitEventDetailMedia}
-              >
-                Submit
-              </button>
-            </div>
-
-            {pendingEventMediaFiles.length > 0 && (
-              <div className="pending-upload-list">
-                {pendingEventMediaFiles.map((file) => (
-                  <div key={`${file.name}-${file.size}-${file.lastModified}`} className="pending-upload-item">
-                    {file.name}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {selectedEventMediaItems.length ? (
-              <div className="event-upload-preview-grid">
-                {selectedEventMediaItems.map((photo) => (
-                  <div key={photo.id} className="photo-card">
-                    {photo.sourceType === "upload" ? (
-                      photo.type === "video" ? (
-                        <video className="photo-thumb media-preview" controls preload="metadata">
-                          <source src={photo.url} />
-                        </video>
-                      ) : (
-                        <img className="photo-thumb media-preview" src={photo.url} alt={photo.label} />
-                      )
-                    ) : (
-                      <div className={`photo-thumb ${photo.tone}`}>
-                        <span>{photo.label}</span>
+            <aside className="event-detail-side-summary event-detail-right-rail">
+                <h3>Other events</h3>
+                <p>Quickly jump to another event from here.</p>
+                <div className="event-detail-other-events">
+                  {otherEventSuggestions.length ? (
+                    otherEventSuggestions.map((event) => (
+                      <div
+                        key={`event-detail-side-${event.id}`}
+                        className="event-detail-other-event-card"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openEventDetail(event.id)}
+                        onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                            keyboardEvent.preventDefault();
+                            openEventDetail(event.id);
+                          }
+                        }}
+                      >
+                        <strong>{event.title}</strong>
+                        <span>{event.projectId || "Project ID pending"}</span>
+                        <span>{event.loc || "Location not added"}</span>
+                        <span>{formatEventDateRange(event)}</span>
+                        <button
+                          type="button"
+                          className="event-detail-other-event-open"
+                          onClick={(clickEvent) => {
+                            clickEvent.stopPropagation();
+                            openEventDetail(event.id);
+                          }}
+                        >
+                          Full expand
+                        </button>
                       </div>
-                    )}
-                    <div className="photo-info">
-                      <div className="photo-event">{selectedEvent.title}</div>
-                      <div className="photo-date">{formatDate(photo.date)}</div>
-                      <div className="photo-kind">
-                        {photo.type === "video" ? "Video upload" : photo.sourceType === "upload" ? "Photo upload" : "Gallery asset"}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="detail-empty-note">No photos or videos uploaded yet. Use the add option above.</div>
-            )}
-          </section>
-        </main>
-      )}
+                    ))
+                  ) : (
+                    <div className="event-detail-other-event-empty">No other events available.</div>
+                  )}
+                </div>
+            </aside>
+          </div>
+          </main>
+        )}
 
-      {activePage === "feedback" && (
-        <main className="page feedback-simple-page">
-          <section className="review-spread-card glass-card">
+        {activePage === "feedback" && (
+          <main className="page feedback-simple-page feedback-page elevated-page">
+          {!isFeedbackFormOpen ? (
+            <section className="review-spread-card glass-card feedback-event-picker">
               <div className="panel-heading">
                 <div>
                   <div className="panel-title">Submit your review</div>
-                  <div className="panel-subtitle">Choose an event and fill the two tables below.</div>
+                  <div className="panel-subtitle">Choose an event and start the review from here.</div>
+                </div>
+                <form
+                  className="dashboard-search feedback-search"
+                  role="search"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    setFeedbackSearchQuery(feedbackSearchInput);
+                  }}
+                >
+                  <input
+                    type="search"
+                    value={feedbackSearchInput}
+                    placeholder="Search event, project ID, location..."
+                    onChange={(event) => setFeedbackSearchInput(event.target.value)}
+                  />
+                  <button type="submit" className="btn-primary dashboard-search-btn">
+                    <NavIcon name="search" />
+                    Search
+                  </button>
+                </form>
+              </div>
+
+              {reviewSuccess && <div className="success-banner compact">{reviewSuccess}</div>}
+
+              {filteredPendingFeedbackEvents.length ? (
+                <div className="feedback-event-list">
+                  {filteredPendingFeedbackEvents.map((event) => (
+                  <button
+                    key={event.id}
+                    type="button"
+                    className="feedback-event-option"
+                    onClick={() => openFeedbackFormForEvent(event.id)}
+                  >
+                    <span className="feedback-event-name">{event.title}</span>
+                    <span className={`feedback-event-condition ${getFeedbackEventCondition(event).toLowerCase()}`}>
+                      {getFeedbackEventCondition(event)}
+                    </span>
+                  </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">No pending events match your search.</div>
+              )}
+            </section>
+          ) : (
+            <>
+          <section className="review-spread-card glass-card">
+              <div className="panel-heading">
+                <div className="feedback-event-header">
+                  {feedbackSelectedEvent && (
+                    <div className="feedback-selected-event-header">
+                      <div className="feedback-subheader">{feedbackSelectedEvent.title}</div>
+                    </div>
+                  )}
+                </div>
+                <div className="feedback-form-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary feedback-icon-btn back-nav-btn back-nav-btn-compact"
+                    onClick={() => {
+                      setIsFeedbackFormOpen(false);
+                      if (feedbackReturnPage === "eventDetail") {
+                        setActivePage("eventDetail");
+                      }
+                    }}
+                    aria-label="Back to events"
+                    title="Back to events"
+                  >
+                    <NavIcon name="arrowLeft" />
+                  </button>
+                  {!isPublicReviewMode && (
+                    <button
+                      type="button"
+                      className="btn-secondary feedback-icon-btn"
+                      onClick={startEditingQuestions}
+                      aria-label="Edit questions"
+                      title="Edit questions"
+                    >
+                      <NavIcon name="edit" />
+                    </button>
+                  )}
                 </div>
               </div>
 
               {reviewSuccess && <div className="success-banner compact">{reviewSuccess}</div>}
 
-              <div className="form-group">
-                <label htmlFor="reviewEvent">Event</label>
-                <select
-                  id="reviewEvent"
-                  value={reviewForm.eventId}
-                  onChange={(event) => {
-                    setReviewSuccess("");
-                    setReviewForm((current) => ({ ...current, eventId: event.target.value }));
-                  }}
-                >
-                  {publicReviewEvents.map((event) => (
-                    <option key={event.id} value={event.id}>
-                      {event.title}
-                    </option>
+              {!isPublicReviewMode && isEditingQuestions && (
+                <div className="question-editor-panel">
+                  {questionDrafts.map((question, index) => (
+                    <label key={`question-editor-${index}`} className="question-editor-field">
+                      <span>{`Question ${index + 1}`}</span>
+                      <textarea
+                        value={question}
+                        onChange={(event) => updateQuestionDraft(index, event.target.value)}
+                      />
+                    </label>
                   ))}
-                </select>
-              </div>
+                  <div className="question-editor-actions">
+                    <button type="button" className="btn-secondary" onClick={cancelEditingQuestions}>
+                      Cancel
+                    </button>
+                    <button type="button" className="btn-primary" onClick={saveQuestionDrafts}>
+                      Save questions
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="detail-review-stack">
+                {reviewSuccess && <div className="success-banner compact">{reviewSuccess}</div>}
                 <div className="reviews-table-wrap detail-review-table-wrap">
                   <div className="detail-table-section">
                     <div className="detail-table-heading">
-                      <div className="ev-name">Ratings Table</div>
-                      <div className="ev-meta">5 questions with 3 reviewers shown across the same row.</div>
+                      <div className="ev-name">Feedback</div>
                     </div>
                     <table className="rev-table review-compare-table detail-split-table">
                       <thead>
                         <tr>
-                          <th className="q-num">#</th>
-                          <th className="question-heading">Question</th>
-                          {feedbackTableUsers.map((review, reviewIndex) => (
-                            <th key={`feedback-head-${reviewIndex}`} className="reviewer-heading-cell">
+                          <th className="q-num" style={{ background: "#6f86f7", color: "#ffffff" }}>#</th>
+                          <th className="question-heading" style={{ background: "#6f86f7", color: "#ffffff" }}>Questions</th>
+                          {feedbackOpenReviewerSlots.map(({ slotIndex: reviewIndex }) => (
+                            <th key={`feedback-feedback-head-${reviewIndex}`} className="reviewer-heading-cell">
                               <div className="reviewer-heading">
-                                <div className={`avatar ${review?.avatar ?? "a"}`}>{review?.initials ?? `R${reviewIndex + 1}`}</div>
-                                <div>
-                                  <div className="reviewer-head-name">{`Reviewer ${reviewIndex + 1}`}</div>
-                                  <div className="reviewer-label-muted">{review ? review.author : "Waiting for input"}</div>
-                                  {review ? (
-                                    <div className="reviewer-head-stars">
-                                      <InteractiveRatingBadge
-                                        badgeId={`feedback-head-${reviewIndex}`}
-                                        rating={review.rating}
-                                        text={`${review.rating} out of 5`}
-                                        activeStarBadge={activeStarBadge}
-                                        onActivate={triggerStarBadge}
-                                      />
-                                    </div>
-                                  ) : null}
-                                </div>
+                                <label className="reviewer-slot-entry">
+                                  <span className="reviewer-slot-label">{`${getReviewerRoleLabel(reviewIndex)}:`}</span>
+                                  <input
+                                    type="text"
+                                    className="reviewer-slot-input reviewer-name-input"
+                                    value={feedbackDrafts[reviewIndex].reviewerName}
+                                    placeholder="Enter name"
+                                    onChange={(event) => updateFeedbackDraftReviewerName(reviewIndex, event.target.value)}
+                                  />
+                                </label>
                               </div>
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {REVIEW_QUESTIONS.map((question, index) => (
-                          <tr key={`feedback-rating-${question}`}>
+                        {FEEDBACK_QUESTIONS.map((question, index) => (
+                          <tr key={`feedback-feedback-${question}`}>
                             <td className="q-num">{index + 1}</td>
-                            <td className="q-cell">{question}</td>
-                            {feedbackTableUsers.map((review, reviewIndex) => (
-                              <td key={`feedback-rating-${reviewIndex}-${index}`} className="answer-cell rating-only-cell">
-                                {review ? (
-                                  <InteractiveRatingBadge
-                                    badgeId={`feedback-question-${reviewIndex}-${index}`}
-                                    rating={getQuestionRating(review, index)}
-                                    text={`${getQuestionRating(review, index)}/5`}
-                                    compact
-                                    activeStarBadge={activeStarBadge}
-                                    onActivate={triggerStarBadge}
-                                  />
-                                ) : (
-                                  <StarRatingInput
-                                    inputId={`feedback-rating-${reviewIndex}-${index}`}
-                                    value={feedbackDrafts[reviewIndex].questionRatings[index]}
-                                    activeStarBadge={activeStarBadge}
-                                    onActivate={triggerStarBadge}
-                                    onChange={(value) => {
-                                      setReviewSuccess("");
-                                      updateFeedbackDraftRating(reviewIndex, index, value);
-                                    }}
-                                  />
-                                )}
-                              </td>
+                            <td className="q-cell">
+                              <QuestionCell
+                                question={question}
+                                description={FEEDBACK_QUESTION_DESCRIPTIONS[index]}
+                              />
+                            </td>
+                            {feedbackOpenReviewerSlots.map(({ slotIndex: reviewIndex }) => (
+                              (() => {
+                                const cellId = `feedback-feedback-${reviewIndex}-${index}`;
+                                const cellValue = feedbackDrafts[reviewIndex].answers[index];
+                                const isExpanded = activeFeedbackCell === cellId || String(cellValue ?? "").trim().length > 0;
+
+                                return (
+                                  <td key={cellId} className="answer-cell">
+                                    <textarea
+                                      id={cellId}
+                                      className={`entry-answer-input detail-comment-input feedback-answer-input ${isExpanded ? "is-expanded" : "is-collapsed"}`}
+                                      value={cellValue}
+                                      placeholder="Click to add feedback..."
+                                      rows={isExpanded ? 4 : 1}
+                                      onFocus={() => setActiveFeedbackCell(cellId)}
+                                      onBlur={() => setActiveFeedbackCell((current) => (current === cellId ? "" : current))}
+                                      onChange={(event) => {
+                                        setReviewSuccess("");
+                                        updateFeedbackDraftAnswer(reviewIndex, index, event.target.value);
+                                      }}
+                                    />
+                                  </td>
+                                );
+                              })()
                             ))}
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                </div>
 
-                  <div className="detail-table-gap" />
+                <div className="detail-table-gap" />
 
+                <div className="reviews-table-wrap detail-review-table-wrap">
                   <div className="detail-table-section">
                     <div className="detail-table-heading">
-                      <div className="ev-name">Comments Table</div>
-                      <div className="ev-meta">The same 5 questions and the same 3 reviewers, with comments only.</div>
+                      <div className="ev-name">Rating Table</div>
                     </div>
                     <table className="rev-table review-compare-table detail-split-table">
                       <thead>
                         <tr>
-                          <th className="q-num">#</th>
-                          <th className="question-heading">Question</th>
-                          {feedbackTableUsers.map((review, reviewIndex) => (
-                            <th key={`feedback-comment-head-${reviewIndex}`} className="reviewer-heading-cell">
+                          <th className="q-num" style={{ background: "#6f86f7", color: "#ffffff" }}>#</th>
+                          <th className="question-heading" style={{ background: "#6f86f7", color: "#ffffff" }}>Questions</th>
+                          {feedbackOpenReviewerSlots.map(({ slotIndex: reviewIndex }) => (
+                            <th key={`feedback-head-${reviewIndex}`} className="reviewer-heading-cell">
                               <div className="reviewer-heading">
-                                <div className={`avatar ${review?.avatar ?? "a"}`}>{review?.initials ?? `R${reviewIndex + 1}`}</div>
-                                <div>
-                                  <div className="reviewer-head-name">{`Reviewer ${reviewIndex + 1}`}</div>
-                                  <div className="reviewer-label-muted">{review ? review.author : "Waiting for input"}</div>
-                                </div>
+                                <label className="reviewer-slot-entry">
+                                  <span className="reviewer-slot-label">{`${getReviewerRoleLabel(reviewIndex)}:`}</span>
+                                  <input
+                                    type="text"
+                                    className="reviewer-slot-input reviewer-name-input"
+                                    value={feedbackDrafts[reviewIndex].reviewerName}
+                                    placeholder="Enter name"
+                                    onChange={(event) => updateFeedbackDraftReviewerName(reviewIndex, event.target.value)}
+                                  />
+                                </label>
                               </div>
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {REVIEW_QUESTIONS.map((question, index) => (
-                          <tr key={`feedback-comment-${question}`}>
+                        {reviewQuestions.map((question, index) => (
+                          <tr key={`feedback-rating-${question}`}>
                             <td className="q-num">{index + 1}</td>
-                            <td className="q-cell">{question}</td>
-                            {feedbackTableUsers.map((review, reviewIndex) => (
-                              <td key={`feedback-comment-${reviewIndex}-${index}`} className="answer-cell">
-                                {review ? (
-                                  <div className="question-answer-copy">{review.answers[index] || "-"}</div>
-                                ) : (
-                                  <textarea
-                                    id={`feedback-comment-${reviewIndex}-${index}`}
-                                    className="entry-answer-input detail-comment-input"
-                                    value={feedbackDrafts[reviewIndex].answers[index]}
-                                    placeholder="Enter your comment..."
-                                    onChange={(event) => {
-                                      setReviewSuccess("");
-                                      updateFeedbackDraftAnswer(reviewIndex, index, event.target.value);
-                                    }}
-                                  />
-                                )}
+                            <td className="q-cell">
+                              <QuestionCell
+                                question={question}
+                                description={RATING_QUESTION_DESCRIPTIONS[index]}
+                              />
+                            </td>
+                            {feedbackOpenReviewerSlots.map(({ slotIndex: reviewIndex }) => (
+                              <td key={`feedback-rating-${reviewIndex}-${index}`} className="answer-cell rating-only-cell">
+                                <StarRatingInput
+                                  inputId={`feedback-rating-${reviewIndex}-${index}`}
+                                  value={feedbackDrafts[reviewIndex].questionRatings[index]}
+                                  activeStarBadge={activeStarBadge}
+                                  onActivate={triggerStarBadge}
+                                  onChange={(value) => {
+                                    setReviewSuccess("");
+                                    updateFeedbackDraftRating(reviewIndex, index, value);
+                                  }}
+                                />
                               </td>
                             ))}
                           </tr>
@@ -2077,24 +3988,40 @@ function App() {
                   </div>
                 </div>
 
-                <div className="detail-review-submit">
-                  <div className="detail-review-submit-grid">
-                    {feedbackTableUsers.map((review, reviewIndex) =>
-                      review ? (
-                        <div key={`feedback-submitted-${reviewIndex}`} className="detail-submit-state submitted">
-                          {`Reviewer ${reviewIndex + 1} submitted`}
+                <div className="detail-review-submit detail-review-submit-between">
+                  <div className="detail-review-submit-grid feedback-submit-grid">
+                    {feedbackOpenReviewerSlots.map(({ slotIndex: reviewIndex }) => (
+                      <button
+                        key={`feedback-submit-${reviewIndex}`}
+                        type="button"
+                        className={`btn-primary reviewer-submit-action reviewer-slot-${reviewIndex}`}
+                        onClick={() => submitFeedbackReview(reviewIndex)}
+                      >
+                        Submit
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="overall-remark-section">
+                  <div className="detail-table-heading">
+                    <div className="ev-name">Total rating</div>
+                  </div>
+                  <div className="overall-remark-grid">
+                    {feedbackOpenReviewerSlots.map(({ slotIndex: reviewIndex }) => (
+                      <article key={`feedback-total-${reviewIndex}`} className="overall-remark-card">
+                        <span>{getReviewerHeaderLabel(null, reviewIndex)}</span>
+                        <div className="overall-remark-summary">
+                          <strong>{getTotalRatingValue(feedbackDrafts[reviewIndex].questionRatings)}</strong>
                         </div>
-                      ) : (
-                        <button
-                          key={`feedback-submit-${reviewIndex}`}
-                          type="button"
-                          className="btn-primary"
-                          onClick={() => submitFeedbackReview(reviewIndex)}
-                        >
-                          {`Submit Reviewer ${reviewIndex + 1}`}
-                        </button>
-                      ),
-                    )}
+                      </article>
+                    ))}
+                    <article className="overall-remark-card overall-summary-card">
+                      <span>Overall rating</span>
+                      <div className="overall-remark-summary">
+                        <strong>{feedbackOverallSummary.total}</strong>
+                      </div>
+                      <p>{feedbackOverallSummary.remark}</p>
+                    </article>
                   </div>
                 </div>
               </div>
@@ -2104,7 +4031,6 @@ function App() {
             <div className="panel-heading">
               <div>
                 <div className="panel-title">Upload Photos or Videos</div>
-                <div className="panel-subtitle">Add media for the selected event and submit it from here.</div>
               </div>
             </div>
 
@@ -2117,6 +4043,7 @@ function App() {
               </label>
               <input
                 id="feedback-media"
+                ref={feedbackMediaInputRef}
                 className="hidden-file-input"
                 type="file"
                 accept="image/*,video/*"
@@ -2142,53 +4069,23 @@ function App() {
               </div>
             )}
 
-            {feedbackEventMediaItems.length ? (
-              <div className="event-upload-preview-grid">
-                {feedbackEventMediaItems.map((photo) => (
-                  <div key={photo.id} className="photo-card">
-                    {photo.sourceType === "upload" ? (
-                      photo.type === "video" ? (
-                        <video className="photo-thumb media-preview" controls preload="metadata">
-                          <source src={photo.url} />
-                        </video>
-                      ) : (
-                        <img className="photo-thumb media-preview" src={photo.url} alt={photo.label} />
-                      )
-                    ) : (
-                      <div className={`photo-thumb ${photo.tone}`}>
-                        <span>{photo.label}</span>
-                      </div>
-                    )}
-                    <div className="photo-info">
-                      <div className="photo-event">{feedbackSelectedEvent?.title}</div>
-                      <div className="photo-date">{formatDate(photo.date)}</div>
-                      <div className="photo-kind">
-                        {photo.type === "video" ? "Video upload" : photo.sourceType === "upload" ? "Photo upload" : "Gallery asset"}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="detail-empty-note">No photos or videos uploaded yet for this event. Use the add option above.</div>
-            )}
           </section>
-        </main>
-      )}
+            </>
+          )}
+          </main>
+        )}
 
-      {activePage === "photos" && (
-        <main className="page">
+        {activePage === "photos" && (
+          <main className="page photos-page elevated-page">
           <div className="section-header">
             <div>
               <div className="section-title">Media library</div>
-              <div className="section-caption">End users can upload photos and videos directly into the event media library.</div>
             </div>
           </div>
           <section className="media-upload-panel glass-card">
             <div className="panel-heading">
               <div>
                 <div className="panel-title">Public media upload</div>
-                <div className="panel-subtitle">Choose an event and add image or video files from a phone or laptop.</div>
               </div>
             </div>
             {mediaSuccess && <div className="success-banner compact">{mediaSuccess}</div>}
@@ -2220,41 +4117,51 @@ function App() {
                   onChange={handleMediaUpload}
                 />
               </div>
+              {eventMediaItems.some((item) => item.url) && (
+                <div className="media-download-toolbar media-download-all-btn">
+                  <span>{getSelectedVisibleMediaItems(eventMediaItems).length} selected</span>
+                  <button
+                    type="button"
+                    className="btn-secondary media-download-btn"
+                    onClick={() => toggleAllVisibleMedia(eventMediaItems)}
+                  >
+                    {getSelectedVisibleMediaItems(eventMediaItems).length === eventMediaItems.filter((item) => item.url).length
+                      ? "Clear"
+                      : "Select all"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary media-download-btn"
+                    onClick={() => downloadMediaItems(getDownloadableMediaItems(eventMediaItems))}
+                  >
+                    <NavIcon name="download" />
+                    Download
+                  </button>
+                </div>
+              )}
             </div>
           </section>
           {eventMediaItems.length ? (
             <div className="photos-grid">
               {eventMediaItems.map((photo) => (
                 <div key={photo.id} className="photo-card">
-                  {photo.sourceType === "upload" ? (
-                    photo.type === "video" ? (
-                      <video className="photo-thumb media-preview" controls preload="metadata">
-                        <source src={photo.url} />
-                      </video>
-                    ) : (
-                      <img className="photo-thumb media-preview" src={photo.url} alt={photo.label} />
-                    )
-                  ) : (
-                    <div className={`photo-thumb ${photo.tone}`}>
-                      <span>{photo.label}</span>
-                    </div>
-                  )}
-                  <div className="photo-info">
-                    <div className="photo-event">{photo.event}</div>
-                    <div className="photo-date">{formatDate(photo.date)}</div>
-                    <div className="photo-kind">{photo.type === "video" ? "Video upload" : photo.sourceType === "upload" ? "Photo upload" : "Gallery asset"}</div>
-                    <button type="button" className="btn-delete media-delete-btn" onClick={() => deleteMediaItem(photo.id)}>
-                      Delete
-                    </button>
-                  </div>
+                  {renderMediaThumb(photo)}
+                  <button
+                    type="button"
+                    className="btn-secondary media-delete-btn"
+                    onClick={() => deleteMediaItem(photo.id)}
+                  >
+                    Delete
+                  </button>
                 </div>
               ))}
             </div>
           ) : (
             <div className="empty-state">No media yet for this event. Upload the first photo or video above.</div>
           )}
-        </main>
-      )}
+          </main>
+        )}
+      </div>
 
       {isModalOpen && (
         <div className="modal-overlay" onClick={(event) => event.target === event.currentTarget && closeModal()}>
@@ -2264,12 +4171,12 @@ function App() {
               <h3>{editingEventId !== null ? "Edit event" : "Add new event"}</h3>
               <p>
                 {editingEventId !== null
-                  ? "Update the event name, description, date, and location."
-                  : "Capture the basics now and enrich the event with reviews or media later."}
+                  ? "Update the event name, executor, sales person, dates, and location."
+                  : "Capture the event name, executor, sales person, dates, and location now."}
               </p>
             </div>
             <div className="form-group">
-              <label htmlFor="title">Event title *</label>
+              <label htmlFor="title">Event name *</label>
               <input
                 id="title"
                 type="text"
@@ -2288,12 +4195,60 @@ function App() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="date">Date</label>
+              <label htmlFor="projectId">Project ID</label>
               <input
-                id="date"
-                type="date"
-                value={form.date}
-                onChange={(event) => setForm({ ...form, date: event.target.value })}
+                id="projectId"
+                type="text"
+                value={form.projectId}
+                placeholder={`e.g. ${PROJECT_ID_PREFIX}/001`}
+                onChange={(event) => setForm({ ...form, projectId: event.target.value })}
+              />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="date">From date</label>
+                <input
+                  id="date"
+                  type="date"
+                  value={form.date}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      date: event.target.value,
+                      endDate: form.endDate && form.endDate >= event.target.value ? form.endDate : event.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="endDate">To date</label>
+                <input
+                  id="endDate"
+                  type="date"
+                  value={form.endDate}
+                  min={form.date}
+                  onChange={(event) => setForm({ ...form, endDate: event.target.value })}
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label htmlFor="attendeeName">Event executor</label>
+              <input
+                id="attendeeName"
+                type="text"
+                value={form.attendeeName}
+                placeholder="e.g. Rohit Sharma"
+                onChange={(event) => setForm({ ...form, attendeeName: event.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="salesPerson">Sales Person</label>
+              <input
+                id="salesPerson"
+                type="text"
+                value={form.salesPerson}
+                placeholder="e.g. Abhi"
+                onChange={(event) => setForm({ ...form, salesPerson: event.target.value })}
               />
             </div>
             <div className="form-group">
@@ -2304,26 +4259,6 @@ function App() {
                 value={form.loc}
                 placeholder="e.g. Bengaluru Convention Centre"
                 onChange={(event) => setForm({ ...form, loc: event.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="projectTitle">Project title</label>
-              <input
-                id="projectTitle"
-                type="text"
-                value={form.projectTitle}
-                placeholder="e.g. Innovation Connect Programme"
-                onChange={(event) => setForm({ ...form, projectTitle: event.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="attendeeName">Attender name</label>
-              <input
-                id="attendeeName"
-                type="text"
-                value={form.attendeeName}
-                placeholder="e.g. Rohit Sharma"
-                onChange={(event) => setForm({ ...form, attendeeName: event.target.value })}
               />
             </div>
             <div className="modal-footer">
@@ -2337,16 +4272,170 @@ function App() {
           </div>
         </div>
       )}
+
+      {previewMediaItem && (
+        <div
+          className="media-lightbox-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={previewMediaItem.label}
+          onClick={(event) => event.target === event.currentTarget && setPreviewMediaItem(null)}
+        >
+          <div className="media-lightbox">
+            <button
+              type="button"
+              className="media-lightbox-close"
+              onClick={() => setPreviewMediaItem(null)}
+              aria-label="Close larger image"
+            >
+              x
+            </button>
+            {previewMediaItem.allowDownload !== false && (
+              <button
+                type="button"
+                className="media-lightbox-download"
+                onClick={() => downloadMediaItem(previewMediaItem)}
+                aria-label={`Download ${previewMediaItem.label}`}
+              >
+                <NavIcon name="download" />
+              </button>
+            )}
+            {previewMediaItem.type === "video" ? (
+              <video className="media-lightbox-video" controls autoPlay>
+                <source src={previewMediaItem.url} />
+              </video>
+            ) : (
+              <img src={previewMediaItem.url} alt={previewMediaItem.label} />
+            )}
+            <div className="media-lightbox-caption">
+              <span>{previewMediaItem.event}</span>
+              <span>{formatDate(previewMediaItem.date)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activityDescriptionPreview && (
+        <div
+          className="activity-description-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={activityDescriptionPreview.name}
+          onClick={(event) => event.target === event.currentTarget && setActivityDescriptionPreview(null)}
+        >
+          <div className="activity-description-panel">
+            <button
+              type="button"
+              className="activity-description-close"
+              aria-label="Close activity description"
+              onClick={() => setActivityDescriptionPreview(null)}
+            >
+              ×
+            </button>
+            <div className="activity-description-kicker">{`Setup ${activityDescriptionPreview.setupCount}`}</div>
+            <h3>{activityDescriptionPreview.name}</h3>
+            <p>{activityDescriptionPreview.description}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function StatCard({ label, value, tone }) {
+function StatCard({ label, value, detail, tone }) {
   return (
     <div className="stat-card">
-      <div className="stat-label">{label}</div>
+      <div className="stat-topline">
+        <div className="stat-label">{label}</div>
+        <div className={`stat-dot ${tone}`} />
+      </div>
       <div className={`stat-value ${tone}`}>{value}</div>
+      {detail && <div className="stat-detail">{detail}</div>}
     </div>
+  );
+}
+
+function NavIcon({ name }) {
+  const iconPaths = {
+    dashboard: (
+      <>
+        <rect x="3" y="3" width="7" height="8" rx="1.5" />
+        <rect x="14" y="3" width="7" height="5" rx="1.5" />
+        <rect x="14" y="12" width="7" height="9" rx="1.5" />
+        <rect x="3" y="15" width="7" height="6" rx="1.5" />
+      </>
+    ),
+    calendar: (
+      <>
+        <path d="M7 3v4" />
+        <path d="M17 3v4" />
+        <rect x="4" y="5" width="16" height="16" rx="2" />
+        <path d="M4 10h16" />
+        <path d="M8 14h3" />
+        <path d="M13 14h3" />
+        <path d="M8 18h3" />
+      </>
+    ),
+    star: (
+      <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9L12 3Z" />
+    ),
+    message: (
+      <>
+        <path d="M5 5h14v10H8l-3 3V5Z" />
+        <path d="M8 9h8" />
+        <path d="M8 12h5" />
+      </>
+    ),
+    image: (
+      <>
+        <rect x="4" y="5" width="16" height="14" rx="2" />
+        <circle cx="9" cy="10" r="1.5" />
+        <path d="m4 16 4.5-4 3.5 3 2.5-2.5L20 17" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6l7-3Z" />
+        <path d="m9 12 2 2 4-5" />
+      </>
+    ),
+    plus: (
+      <>
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="11" cy="11" r="6" />
+        <path d="m16 16 4 4" />
+      </>
+    ),
+    arrowLeft: (
+      <>
+        <path d="M19 12H5" />
+        <path d="m12 5-7 7 7 7" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M12 4v10" />
+        <path d="m7 10 5 5 5-5" />
+        <path d="M5 20h14" />
+      </>
+    ),
+    edit: (
+      <>
+        <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+        <path d="M13.5 7.5l3 3" />
+      </>
+    ),
+  };
+
+  return (
+    <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {iconPaths[name]}
+    </svg>
   );
 }
 
@@ -2370,17 +4459,19 @@ function EventCard({
   dashboardEditOnly = false,
 }) {
   const averageRating = getAverageRating(event.reviews);
+  const showDashboardSummary = dashboardEditOnly;
 
   return (
     <article
       className={`event-card ${onOpen ? "clickable-card" : ""}`}
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? `Open event details for ${event.title}` : undefined}
       onClick={() => {
         onOpen?.(event.id);
       }}
       onKeyDown={(eventKey) => {
-        if (!onOpen) {
+        if (!onOpen || eventKey.target !== eventKey.currentTarget) {
           return;
         }
 
@@ -2390,70 +4481,176 @@ function EventCard({
         }
       }}
     >
-      <div className="event-top">
-        <div className="event-copy">
-          <div className="event-card-header">
-            <div className="event-title">{event.title}</div>
-          </div>
-          {!compact && <div className="event-desc">{event.desc}</div>}
-        </div>
-        {(showActions || dashboardEditOnly) && (
-          <div className="event-actions">
-            {onEdit && (
-              <button
-                type="button"
-                className="btn-secondary event-edit-btn"
-                onClick={(clickEvent) => {
-                  clickEvent.stopPropagation();
-                  onEdit(event);
-                }}
-              >
-                Edit
-              </button>
+      <div className="event-timeline-body">
+          <div className="event-top">
+            <div className="event-copy">
+              <div className="event-card-header">
+                <div>
+                  <div className="event-title">{event.title}</div>
+                  <div className="event-location-line">
+                    <span>{event.loc}</span>
+                    <span className="event-inline-separator">|</span>
+                    <span>{formatEventDateRange(event)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {(showActions || dashboardEditOnly) && (
+              <div className="event-actions">
+                {!showActions && (
+                  <span className={`event-status-chip status-${event.status}`}>
+                    {formatStatusLabel(event.status)}
+                  </span>
+                )}
+                {onEdit && (
+                  <button
+                    type="button"
+                    className="btn-secondary event-edit-btn"
+                    onClick={(clickEvent) => {
+                      clickEvent.stopPropagation();
+                      onEdit(event);
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+                {showActions && (
+                  <span className={`event-status-chip status-${event.status}`}>
+                    {formatStatusLabel(event.status)}
+                  </span>
+                )}
+                {showActions && onDelete && (
+                  <button
+                    type="button"
+                    className="btn-delete"
+                    onClick={(clickEvent) => {
+                      clickEvent.stopPropagation();
+                      onDelete(event.id);
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             )}
-            {showActions && onDelete && (
-              <button
-                type="button"
-                className="btn-delete"
-                onClick={(clickEvent) => {
-                  clickEvent.stopPropagation();
-                  onDelete(event.id);
-                }}
-              >
-                Delete
-              </button>
-            )}
           </div>
-        )}
+          {!compact && !showDashboardSummary && (
+            <div className="event-stats-inline">
+              <span className="event-stats-rating">{`Avg rating ${averageRating ? averageRating.toFixed(1) : "-"}`}</span>
+            </div>
+          )}
+          {compact && (
+            <div className="event-footer compact-footer">
+              <div className="event-metric">
+                <strong>{formatEventDateRange(event)}</strong>
+                <span>Event date</span>
+              </div>
+            </div>
+          )}
+          {onOpen && !showDashboardSummary && <div className="event-open-hint">Open full event page</div>}
       </div>
-      <div className="event-meta-pills">
-        <span className="meta-pill">{formatDate(event.date)}</span>
-        <span className="meta-pill">{event.loc}</span>
+    </article>
+  );
+}
+
+function EventInfoTile({ label, value }) {
+  return (
+    <div className="event-info-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function EventSimpleRow({ event, onDelete, onEdit, onOpen, showActions = false }) {
+  const displayStatus = getEventDisplayStatus(event);
+  const averageRating = getAverageRating(event.reviews);
+
+  return (
+    <article
+      className="events-simple-row"
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? `Open event details for ${event.title}` : undefined}
+      onClick={() => onOpen?.(event.id)}
+      onKeyDown={(eventKey) => {
+        if (!onOpen || eventKey.target !== eventKey.currentTarget) {
+          return;
+        }
+
+        if (eventKey.key === "Enter" || eventKey.key === " ") {
+          eventKey.preventDefault();
+          onOpen(event.id);
+        }
+      }}
+    >
+      <div className="events-simple-top">
+        <div className="events-simple-main">
+          <strong>{event.title}</strong>
+          <small>{event.projectId || "No project ID"}</small>
+        </div>
+        <div className="events-simple-side">
+          <span className="events-simple-meta-item">
+            <label>Status</label>
+            <span className={`events-simple-status status-${displayStatus}`}>
+              {STATUS_LABELS[displayStatus] ?? "Inactive"}
+            </span>
+          </span>
+          {showActions && (
+            <span className="events-simple-actions">
+              {onEdit && (
+                <button
+                  type="button"
+                  className="btn-secondary event-edit-btn"
+                  onClick={(clickEvent) => {
+                    clickEvent.stopPropagation();
+                    onEdit(event);
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  className="btn-delete"
+                  onClick={(clickEvent) => {
+                    clickEvent.stopPropagation();
+                    onDelete(event.id);
+                  }}
+                >
+                  Delete
+                </button>
+              )}
+            </span>
+          )}
+        </div>
       </div>
-      {compact ? (
-        <div className="event-footer compact-footer">
-          <div className="event-metric">
-            <strong>{formatDate(event.date)}</strong>
-            <span>Date</span>
-          </div>
-        </div>
-      ) : (
-        <div className="event-footer">
-          <div className="event-metric">
-            <strong>{event.reviews.length}</strong>
-            <span>Reviews</span>
-          </div>
-          <div className="event-metric">
-            <strong>{event.photos}</strong>
-            <span>Photos</span>
-          </div>
-          <div className="event-metric">
-            <strong>{averageRating ? averageRating.toFixed(1) : "-"}</strong>
-            <span>Avg rating</span>
-          </div>
-        </div>
-      )}
-      {onOpen && <div className="event-open-hint">Open full event page</div>}
+      <div className="events-simple-meta">
+        <span className="events-simple-meta-item">
+          <label>Executor</label>
+          <strong>{event.attendeeName || "-"}</strong>
+        </span>
+        <span className="events-simple-meta-item">
+          <label>Date</label>
+          <strong>{formatEventDateRange(event)}</strong>
+        </span>
+        <span className="events-simple-meta-item">
+          <label>Location</label>
+          <strong>{event.loc || "-"}</strong>
+        </span>
+        <span className="events-simple-meta-item">
+          <label>Reviews</label>
+          <strong>{event.reviews.length}</strong>
+        </span>
+        <span className="events-simple-meta-item">
+          <label>Average</label>
+          <strong>{averageRating ? averageRating.toFixed(1) : "-"}</strong>
+        </span>
+      </div>
+      <div className="events-simple-open-note">
+        Open full event page
+      </div>
     </article>
   );
 }

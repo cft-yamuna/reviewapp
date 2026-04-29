@@ -219,6 +219,8 @@ function ReviewApp() {
           </div>
         </section>
 
+        <button type="button" className="submit-button">Submit Review</button>
+
         <section className="card">
           <div className="section-heading">Skill Reviews</div>
           <div className="summary-grid">

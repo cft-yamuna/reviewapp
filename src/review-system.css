@@ -227,6 +227,27 @@ button {
   cursor: default;
 }
 
+.submit-button {
+  background: #2b54d4;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.submit-button:hover {
+  background: #1e3fa0;
+}
+
+.submit-button:active {
+  background: #1a348a;
+}
+
 .decision-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

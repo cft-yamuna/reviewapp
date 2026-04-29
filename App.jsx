@@ -2,11 +2,11 @@ import { useState } from "react";
 import "./App.css";
 
 const REVIEW_QUESTIONS = [
-  "How would you rate the overall experience?",
-  "How was the venue and facilities?",
-  "How was the content / programme quality?",
-  "How would you rate the organisation and logistics?",
-  "Would you recommend this event to others?",
+  "How would you rate the overall project delivery as per client expectation?",
+  "Was the setup completed on time and fully ready before event start?",
+  "How stable and reliable was the hardware & software during the event?",
+  "How well was the event handled on-ground (setup, coordination, troubleshooting)?",
+  "How satisfied was the client with the overall execution?",
 ];
 
 const STATUS_LABELS = {

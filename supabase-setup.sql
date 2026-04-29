@@ -5,15 +5,31 @@ create table if not exists public.events (
   title text not null,
   "desc" text not null default '',
   date date not null default current_date,
+  end_date date not null default current_date,
   loc text not null default '',
+  project_id text not null default '',
   project_title text not null default '',
   attendee_name text not null default '',
+  sales_person text not null default '',
+  activities jsonb not null default '[]'::jsonb,
   status text not null default 'active',
   photos integer not null default 0,
   reviews jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.events
+add column if not exists project_id text not null default '';
+
+alter table public.events
+add column if not exists end_date date not null default current_date;
+
+alter table public.events
+add column if not exists activities jsonb not null default '[]'::jsonb;
+
+alter table public.events
+add column if not exists sales_person text not null default '';
 
 create table if not exists public.media_items (
   id uuid primary key default gen_random_uuid(),
