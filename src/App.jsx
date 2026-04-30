@@ -119,44 +119,12 @@ const REVIEWER_ROLE_LABELS = ["BD", "Executor", "Tech"];
 
 const MEDIA_TONES = ["ocean", "gold", "forest", "coral"];
 const REVIEW_QUESTIONS_STORAGE_KEY = "eventReviewRatingQuestionsV2";
-const LOCAL_EVENTS_STORAGE_KEY = "eventReviewEvents";
 const UI_STATE_STORAGE_KEY = "eventReviewUiState";
 const ADMIN_ACCESS_STORAGE_KEY = "eventReviewAdminAccess";
 const LOGIN_ACCESS_STORAGE_KEY = "eventReviewAllowedEmail";
 const ADMIN_PASSCODE = import.meta.env.VITE_ADMIN_PASSCODE || "craftech360";
 const ALLOWED_SIGNIN_EMAIL = "subscription.cft360@gmail.com";
 const RESTORABLE_PAGES = new Set(["dashboard", "events", "reviews", "eventDetail", "feedback", "photos"]);
-
-function getStoredEvents() {
-  if (typeof window === "undefined") {
-    return INITIAL_EVENTS;
-  }
-
-  try {
-    const storedEvents = window.localStorage.getItem(LOCAL_EVENTS_STORAGE_KEY);
-    const parsedEvents = storedEvents ? JSON.parse(storedEvents) : null;
-
-    if (Array.isArray(parsedEvents)) {
-      return applyOrderedProjectIds(parsedEvents.map((event) => ({
-        ...event,
-        id: Number(event.id),
-        projectId: String(event.projectId ?? "").trim(),
-        projectTitle: event.projectTitle ?? event.title ?? "",
-        attendeeName: normalizeAttendeeName(event.attendeeName),
-        salesPerson: event.salesPerson ?? "",
-        createdAt: event.createdAt ?? event.date,
-        endDate: event.endDate ?? event.date,
-        activities: normalizeActivities(event.activities, event.title ?? "", event.desc ?? ""),
-        photos: Number(event.photos ?? 0),
-        reviews: Array.isArray(event.reviews) ? event.reviews.map(normalizeReview) : [],
-      })));
-    }
-  } catch {
-    return INITIAL_EVENTS;
-  }
-
-  return INITIAL_EVENTS;
-}
 
 function getStoredReviewQuestions() {
   return REVIEW_QUESTIONS;
@@ -1126,7 +1094,7 @@ function App() {
   const reviewOnlyPath = window.location.pathname.replace(/\/+$/, "") === "/review";
   const reviewOnlyQuery = new URLSearchParams(window.location.search).get("view") === "review";
   const isPublicReviewMode = reviewOnlyPath || reviewOnlyQuery;
-  const initialEventState = getStoredEvents();
+  const initialEventState = INITIAL_EVENTS;
   const storedAccessEmail = getStoredAccessEmail();
   const storedUiState = getStoredUiState();
   const storedSelectedEventExists = initialEventState.some((event) => String(event.id) === String(storedUiState.selectedEventId));
@@ -1238,14 +1206,6 @@ function App() {
   }, [reviewQuestions]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(LOCAL_EVENTS_STORAGE_KEY, JSON.stringify(events));
-  }, [events]);
-
-  useEffect(() => {
     if (typeof window === "undefined" || isPublicReviewMode) {
       return;
     }
@@ -1291,6 +1251,48 @@ function App() {
 
     let ignore = false;
 
+    const applyLoadedEvents = (loadedEvents, loadedMedia, partialLoadWarning = "") => {
+      const mappedEvents = applyOrderedProjectIds(loadedEvents.map(mapDbEvent));
+      const mappedMedia = loadedMedia.map(mapDbMediaItem);
+      setEvents(mappedEvents);
+      setMediaItems(mappedMedia);
+      setSyncError(partialLoadWarning);
+      setNextId(mappedEvents.reduce((maxId, event) => Math.max(maxId, event.id), 0) + 1);
+
+      if (!mappedEvents.length) {
+        setSelectedEventId("");
+        setSelectedReviewEventId("");
+        setReviewForm((current) => ({ ...current, eventId: "" }));
+        setMediaEventId("");
+        setIsSyncing(false);
+        return;
+      }
+
+      const restoredSelectedEventId =
+        mappedEvents.find((event) => String(event.id) === String(storedUiState.selectedEventId))?.id ?? mappedEvents[0].id;
+      const restoredSelectedReviewEventId =
+        mappedEvents.find((event) => String(event.id) === String(storedUiState.selectedReviewEventId))?.id ??
+        mappedEvents.find((event) => event.reviews.length > 0)?.id ??
+        mappedEvents[0].id;
+      const restoredMediaEventId =
+        mappedEvents.find((event) => String(event.id) === String(storedUiState.mediaEventId))?.id ??
+        mappedEvents.find((event) => event.status !== "inactive")?.id ??
+        mappedEvents[0].id;
+
+      setSelectedEventId(String(restoredSelectedEventId));
+      setSelectedReviewEventId(String(restoredSelectedReviewEventId));
+      setReviewForm((current) => ({
+        ...current,
+        eventId: String(
+          mappedEvents.find((event) => String(event.id) === String(current.eventId))?.id ??
+            mappedEvents.find((event) => event.status === "active")?.id ??
+            mappedEvents[0].id,
+        ),
+      }));
+      setMediaEventId(String(restoredMediaEventId));
+      setIsSyncing(false);
+    };
+
     const loadRemoteData = async () => {
       setIsSyncing(true);
       setSyncError("");
@@ -1317,38 +1319,7 @@ function App() {
       }
 
       if (!ignore) {
-        const mappedEvents = applyOrderedProjectIds(eventRows.map(mapDbEvent));
-        const mappedMedia = mediaRows.map(mapDbMediaItem);
-        setEvents(mappedEvents);
-        setMediaItems(mappedMedia);
-        setSyncError(partialLoadWarning);
-        setNextId(mappedEvents.reduce((maxId, event) => Math.max(maxId, event.id), 0) + 1);
-        if (mappedEvents.length) {
-          const restoredSelectedEventId =
-            mappedEvents.find((event) => String(event.id) === String(storedUiState.selectedEventId))?.id ??
-            mappedEvents[0].id;
-          const restoredSelectedReviewEventId =
-            mappedEvents.find((event) => String(event.id) === String(storedUiState.selectedReviewEventId))?.id ??
-            mappedEvents.find((event) => event.reviews.length > 0)?.id ??
-            mappedEvents[0].id;
-          const restoredMediaEventId =
-            mappedEvents.find((event) => String(event.id) === String(storedUiState.mediaEventId))?.id ??
-            mappedEvents.find((event) => event.status !== "inactive")?.id ??
-            mappedEvents[0].id;
-
-          setSelectedEventId(String(restoredSelectedEventId));
-          setSelectedReviewEventId(String(restoredSelectedReviewEventId));
-          setReviewForm((current) => ({
-            ...current,
-            eventId: String(
-              mappedEvents.find((event) => String(event.id) === String(current.eventId))?.id ??
-                mappedEvents.find((event) => event.status === "active")?.id ??
-                mappedEvents[0].id,
-            ),
-          }));
-          setMediaEventId(String(restoredMediaEventId));
-        }
-        setIsSyncing(false);
+        applyLoadedEvents(eventRows, mediaRows, partialLoadWarning);
       }
     };
 
