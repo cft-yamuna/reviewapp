@@ -90,96 +90,7 @@ const NAV_ITEMS = [
   { page: "photos", label: "Gallery", icon: "image" },
 ];
 
-const INITIAL_EVENTS = [
-  {
-    id: 1,
-    title: "Annual Tech Summit 2024",
-    desc: "A full-day conference bringing together industry leaders to discuss emerging technologies and innovation trends.",
-    activities: [
-      {
-        name: "Annual Tech Summit 2024",
-        description: "A full-day conference bringing together industry leaders to discuss emerging technologies and innovation trends.",
-        setupCount: 1,
-      },
-    ],
-    date: "2024-03-15",
-    endDate: "2024-03-15",
-    loc: "Bengaluru Convention Centre",
-    projectId: "CFT202627/001",
-    projectTitle: "",
-    attendeeName: "",
-    salesPerson: "",
-    status: "active",
-    photos: 0,
-    reviews: [],
-  },
-  {
-    id: 2,
-    title: "Product Design Workshop",
-    desc: "Hands-on workshop covering UX research methods, prototyping techniques, and usability testing.",
-    activities: [
-      {
-        name: "Product Design Workshop",
-        description: "Hands-on workshop covering UX research methods, prototyping techniques, and usability testing.",
-        setupCount: 1,
-      },
-    ],
-    date: "2024-04-02",
-    endDate: "2024-04-02",
-    loc: "CoWork Hub, Koramangala",
-    projectId: "CFT202627/002",
-    projectTitle: "",
-    attendeeName: "",
-    salesPerson: "",
-    status: "active",
-    photos: 0,
-    reviews: [],
-  },
-  {
-    id: 3,
-    title: "Startup Pitch Night",
-    desc: "Emerging startups present their ideas to a panel of investors and industry mentors.",
-    activities: [
-      {
-        name: "Startup Pitch Night",
-        description: "Emerging startups present their ideas to a panel of investors and industry mentors.",
-        setupCount: 1,
-      },
-    ],
-    date: "2024-04-20",
-    endDate: "2024-04-20",
-    loc: "91Springboard, HSR Layout",
-    projectId: "CFT202627/003",
-    projectTitle: "",
-    attendeeName: "",
-    salesPerson: "",
-    status: "pending",
-    photos: 0,
-    reviews: [],
-  },
-  {
-    id: 4,
-    title: "Cultural Evening Gala",
-    desc: "An evening celebrating art, music and food from across Karnataka, featuring live performances.",
-    activities: [
-      {
-        name: "Cultural Evening Gala",
-        description: "An evening celebrating art, music and food from across Karnataka, featuring live performances.",
-        setupCount: 1,
-      },
-    ],
-    date: "2024-02-10",
-    endDate: "2024-02-10",
-    loc: "Lalit Ashok Hotel",
-    projectId: "CFT202627/004",
-    projectTitle: "",
-    attendeeName: "",
-    salesPerson: "",
-    status: "inactive",
-    photos: 0,
-    reviews: [],
-  },
-];
+const INITIAL_EVENTS = [];
 
 const INITIAL_FORM = {
   title: "",
@@ -1388,31 +1299,6 @@ function App() {
         supabase.from("events").select("*").order("id", { ascending: true });
       const fetchMedia = async () =>
         supabase.from("media_items").select("*").order("created_at", { ascending: false });
-      const insertSeedEvents = async () => {
-        const optionalColumns = ["activities", "end_date", "project_title", "attendee_name", "sales_person"];
-        const omittedColumns = new Set();
-        let payload = INITIAL_EVENTS.map((event) => toEventPayload(event, false));
-        let { error } = await supabase.from("events").insert(payload);
-
-        while (error) {
-          const missingColumn = getMissingSupabaseColumn(error, optionalColumns);
-
-          if (!missingColumn || omittedColumns.has(missingColumn)) {
-            break;
-          }
-
-          omittedColumns.add(missingColumn);
-          payload = payload.map((eventPayload) => {
-            const nextPayload = { ...eventPayload };
-            delete nextPayload[missingColumn];
-            return nextPayload;
-          });
-          ({ error } = await supabase.from("events").insert(payload));
-        }
-
-        return { error };
-      };
-
       let [{ data: eventRows, error: eventsError }, { data: mediaRows, error: mediaError }] =
         await Promise.all([fetchEvents(), fetchMedia()]);
 
@@ -1428,34 +1314,6 @@ function App() {
       if (mediaError) {
         partialLoadWarning = getSupabasePartialLoadWarning(mediaError);
         mediaRows = [];
-      }
-
-      if (!eventRows.length) {
-        const { error: seedError } = await insertSeedEvents();
-
-        if (seedError) {
-          if (!ignore) {
-            setSyncError("Could not seed initial events into Supabase.");
-            setIsSyncing(false);
-          }
-          return;
-        }
-
-        [{ data: eventRows, error: eventsError }, { data: mediaRows, error: mediaError }] =
-          await Promise.all([fetchEvents(), fetchMedia()]);
-
-        if (eventsError) {
-          if (!ignore) {
-            setSyncError("Supabase setup finished, but loading the new data failed.");
-            setIsSyncing(false);
-          }
-          return;
-        }
-
-        if (mediaError) {
-          partialLoadWarning = getSupabasePartialLoadWarning(mediaError);
-          mediaRows = [];
-        }
       }
 
       if (!ignore) {
