@@ -97,8 +97,9 @@ const INITIAL_FORM = {
   desc: "",
   date: new Date().toISOString().slice(0, 10),
   endDate: new Date().toISOString().slice(0, 10),
-  createdAt: new Date().toISOString().slice(0, 10),
+  setupDate: new Date().toISOString().slice(0, 10),
   loc: "",
+  clientName: "",
   projectId: "",
   projectTitle: "",
   attendeeName: "",
@@ -287,11 +288,15 @@ function mapDbEvent(record) {
     date: record.date,
     endDate: record.end_date ?? record.date,
     loc: record.loc ?? "TBD",
+    clientName: record.client_name ?? "",
     projectId: String(record.project_id ?? "").trim(),
     projectTitle: record.project_title ?? "",
     attendeeName: normalizeAttendeeName(record.attendee_name),
     salesPerson: record.sales_person ?? "",
-    createdAt: record.created_at ?? record.date,
+    setupDate:
+      normalizeDateInputValue(record.setup_date) ||
+      normalizeDateInputValue(record.created_at) ||
+      record.date,
     status: record.status ?? "active",
     photos: Number(record.photos ?? 0),
     reviews: Array.isArray(record.reviews) ? record.reviews.map(normalizeReview) : [],
@@ -321,6 +326,7 @@ function toEventPayload(event, includeId = true) {
     date: event.date,
     end_date: event.endDate || event.date,
     loc: event.loc ?? "",
+    client_name: event.clientName ?? "",
     project_id: event.projectId ?? "",
     project_title: event.projectTitle ?? "",
     attendee_name: normalizeAttendeeName(event.attendeeName),
@@ -331,8 +337,8 @@ function toEventPayload(event, includeId = true) {
     updated_at: new Date().toISOString(),
   };
 
-  if (event.createdAt) {
-    payload.created_at = new Date(event.createdAt).toISOString();
+  if (event.setupDate) {
+    payload.setup_date = event.setupDate;
   }
 
   if (includeId) {
@@ -340,6 +346,36 @@ function toEventPayload(event, includeId = true) {
   }
 
   return payload;
+}
+
+function normalizeDateInputValue(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    const trimmedValue = value.trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedValue)) {
+      return trimmedValue;
+    }
+
+    if (trimmedValue.length >= 10) {
+      const leadingDate = trimmedValue.slice(0, 10);
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(leadingDate)) {
+        return leadingDate;
+      }
+    }
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
 }
 
 function isMissingSupabaseColumn(error, columnName) {
@@ -1376,6 +1412,7 @@ function App() {
     return [
       event.title,
       event.loc,
+      event.clientName,
       event.projectId,
       event.attendeeName,
     ]
@@ -1430,6 +1467,7 @@ function App() {
     return [
       event.projectId,
       event.title,
+      event.clientName,
       event.loc,
       event.attendeeName,
       event.salesPerson,
@@ -1467,7 +1505,7 @@ function App() {
     }
 
     const { includeId = true } = options;
-    const optionalColumns = ["activities", "end_date", "project_title", "attendee_name", "sales_person"];
+    const optionalColumns = ["activities", "end_date", "project_title", "attendee_name", "sales_person", "setup_date", "client_name"];
     const omittedColumns = new Set();
     const runEventQuery = (payload) =>
       includeId
@@ -1502,9 +1540,11 @@ function App() {
         ? normalizeActivities(eventRecord.activities, eventRecord.title, eventRecord.desc)
         : savedEvent.activities,
       endDate: omittedColumns.has("end_date") ? eventRecord.endDate || eventRecord.date : savedEvent.endDate,
+      clientName: omittedColumns.has("client_name") ? eventRecord.clientName ?? "" : savedEvent.clientName,
       projectTitle: omittedColumns.has("project_title") ? eventRecord.projectTitle ?? eventRecord.title : savedEvent.projectTitle,
       attendeeName: omittedColumns.has("attendee_name") ? eventRecord.attendeeName ?? "" : savedEvent.attendeeName,
       salesPerson: omittedColumns.has("sales_person") ? eventRecord.salesPerson ?? "" : savedEvent.salesPerson,
+      setupDate: omittedColumns.has("setup_date") ? eventRecord.setupDate || eventRecord.date : savedEvent.setupDate,
     };
   };
 
@@ -1683,7 +1723,7 @@ function App() {
       ...INITIAL_FORM,
       date: new Date().toISOString().slice(0, 10),
       endDate: new Date().toISOString().slice(0, 10),
-      createdAt: new Date().toISOString().slice(0, 10),
+      setupDate: new Date().toISOString().slice(0, 10),
       projectId: suggestedProjectId,
     });
     setEditingEventId(null);
@@ -1695,7 +1735,7 @@ function App() {
       ...INITIAL_FORM,
       date: new Date().toISOString().slice(0, 10),
       endDate: new Date().toISOString().slice(0, 10),
-      createdAt: new Date().toISOString().slice(0, 10),
+      setupDate: new Date().toISOString().slice(0, 10),
       projectId: suggestedProjectId,
     });
     setEditingEventId(null);
@@ -1709,8 +1749,12 @@ function App() {
       desc: eventToEdit.desc,
       date: eventToEdit.date,
       endDate: eventToEdit.endDate ?? eventToEdit.date,
-      createdAt: eventToEdit.createdAt ?? eventToEdit.date,
+      setupDate:
+        normalizeDateInputValue(eventToEdit.setupDate) ||
+        normalizeDateInputValue(eventToEdit.date) ||
+        new Date().toISOString().slice(0, 10),
       loc: eventToEdit.loc,
+      clientName: eventToEdit.clientName ?? "",
       projectId: eventToEdit.projectId ?? "",
       projectTitle: eventToEdit.projectTitle ?? "",
       attendeeName: eventToEdit.attendeeName ?? "",
@@ -1755,9 +1799,12 @@ function App() {
   };
 
   const saveEvent = async () => {
+    const today = new Date().toISOString().slice(0, 10);
     const title = form.title.trim();
     const desc = form.desc.trim();
     const loc = form.loc.trim();
+    const clientName = form.clientName.trim();
+    const setupDate = normalizeDateInputValue(form.setupDate) || normalizeDateInputValue(form.date) || today;
     const projectId =
       editingEventId !== null
         ? normalizeProjectId(form.projectId, editingEventId ?? nextId)
@@ -1794,10 +1841,11 @@ function App() {
         title,
         desc: desc || "No description provided.",
         activities: currentEvent?.activities?.length ? currentEvent.activities : activities,
-        date: form.date || new Date().toISOString().slice(0, 10),
-        endDate: form.endDate || form.date || new Date().toISOString().slice(0, 10),
-        createdAt: currentEvent?.createdAt ?? form.createdAt ?? form.date,
+        date: form.date || today,
+        endDate: form.endDate || form.date || today,
+        setupDate,
         loc: loc || "TBD",
+        clientName,
         projectId,
         projectTitle: title,
         attendeeName,
@@ -1829,10 +1877,11 @@ function App() {
         title,
         desc: desc || "No description provided.",
         activities,
-        date: form.date || new Date().toISOString().slice(0, 10),
-        endDate: form.endDate || form.date || new Date().toISOString().slice(0, 10),
-        createdAt: new Date().toISOString(),
+        date: form.date || today,
+        endDate: form.endDate || form.date || today,
+        setupDate,
         loc: loc || "TBD",
+        clientName,
         projectId,
         projectTitle: title,
         attendeeName,
@@ -2879,7 +2928,7 @@ function App() {
                       {event.attendeeName || "-"}
                     </span>
                     <span className="dashboard-event-meta" data-label="Setup date">
-                      {formatDate(event.createdAt || event.date)}
+                      {formatDate(event.setupDate || event.date)}
                     </span>
                     <span className="dashboard-event-meta dashboard-event-date" data-label="Event date">
                       {formatEventDateRange(event)}
@@ -2937,6 +2986,16 @@ function App() {
             </div>
             <div className="form-row">
               <div className="form-group">
+                <label htmlFor="new-clientName">Client Name</label>
+                <input
+                  id="new-clientName"
+                  type="text"
+                  value={form.clientName}
+                  placeholder="e.g. Acme Corp"
+                  onChange={(event) => setForm({ ...form, clientName: event.target.value })}
+                />
+              </div>
+              <div className="form-group">
                 <label htmlFor="new-salesPerson">Sales Person</label>
                 <input
                   id="new-salesPerson"
@@ -2947,12 +3006,12 @@ function App() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="new-createdAt">Setup Date</label>
+                <label htmlFor="new-setupDate">Setup Date</label>
                 <input
-                  id="new-createdAt"
+                  id="new-setupDate"
                   type="date"
-                  value={form.createdAt}
-                  onChange={(event) => setForm({ ...form, createdAt: event.target.value })}
+                  value={form.setupDate}
+                  onChange={(event) => setForm({ ...form, setupDate: event.target.value })}
                 />
               </div>
             </div>
@@ -3227,9 +3286,10 @@ function App() {
                       {[
                         { label: "Project ID", value: selectedEvent.projectId || "Project ID pending", icon: "dashboard" },
                         { label: "Event Name", value: selectedEvent.title || "Event name pending", icon: "star" },
+                        { label: "Client Name", value: selectedEvent.clientName || "Client name pending", icon: "message" },
                         { label: "Executor", value: selectedEvent.attendeeName || "Executor pending", icon: "shield" },
                         { label: "Sales Person", value: selectedEvent.salesPerson || "Sales person pending", icon: "message" },
-                        { label: "Setup Date", value: selectedEvent.createdAt || selectedEvent.date ? formatDate(selectedEvent.createdAt || selectedEvent.date) : "Setup date pending", icon: "calendar" },
+                        { label: "Setup Date", value: selectedEvent.setupDate || selectedEvent.date ? formatDate(selectedEvent.setupDate || selectedEvent.date) : "Setup date pending", icon: "calendar" },
                         { label: "Location", value: selectedEvent.loc || "Location not added", icon: "image" },
                       ].map((item) => (
                         <div key={item.label} className="event-detail-info-card">
@@ -4063,6 +4123,25 @@ function App() {
                 value={form.projectId}
                 placeholder={`e.g. ${PROJECT_ID_PREFIX}/001`}
                 onChange={(event) => setForm({ ...form, projectId: event.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="clientName">Client Name</label>
+              <input
+                id="clientName"
+                type="text"
+                value={form.clientName}
+                placeholder="e.g. Acme Corp"
+                onChange={(event) => setForm({ ...form, clientName: event.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="setupDate">Setup Date</label>
+              <input
+                id="setupDate"
+                type="date"
+                value={form.setupDate}
+                onChange={(event) => setForm({ ...form, setupDate: event.target.value })}
               />
             </div>
             <div className="form-row">
