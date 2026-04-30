@@ -97,7 +97,7 @@ const INITIAL_FORM = {
   desc: "",
   date: new Date().toISOString().slice(0, 10),
   endDate: new Date().toISOString().slice(0, 10),
-  setupDate: new Date().toISOString().slice(0, 10),
+  setupDate: "",
   loc: "",
   clientName: "",
   projectId: "",
@@ -293,10 +293,7 @@ function mapDbEvent(record) {
     projectTitle: record.project_title ?? "",
     attendeeName: normalizeAttendeeName(record.attendee_name),
     salesPerson: record.sales_person ?? "",
-    setupDate:
-      normalizeDateInputValue(record.setup_date) ||
-      normalizeDateInputValue(record.created_at) ||
-      record.date,
+    setupDate: normalizeDateInputValue(record.setup_date),
     status: record.status ?? "active",
     photos: Number(record.photos ?? 0),
     reviews: Array.isArray(record.reviews) ? record.reviews.map(normalizeReview) : [],
@@ -1544,7 +1541,7 @@ function App() {
       projectTitle: omittedColumns.has("project_title") ? eventRecord.projectTitle ?? eventRecord.title : savedEvent.projectTitle,
       attendeeName: omittedColumns.has("attendee_name") ? eventRecord.attendeeName ?? "" : savedEvent.attendeeName,
       salesPerson: omittedColumns.has("sales_person") ? eventRecord.salesPerson ?? "" : savedEvent.salesPerson,
-      setupDate: omittedColumns.has("setup_date") ? eventRecord.setupDate || eventRecord.date : savedEvent.setupDate,
+      setupDate: omittedColumns.has("setup_date") ? eventRecord.setupDate ?? "" : savedEvent.setupDate,
     };
   };
 
@@ -1723,7 +1720,6 @@ function App() {
       ...INITIAL_FORM,
       date: new Date().toISOString().slice(0, 10),
       endDate: new Date().toISOString().slice(0, 10),
-      setupDate: new Date().toISOString().slice(0, 10),
       projectId: suggestedProjectId,
     });
     setEditingEventId(null);
@@ -1735,7 +1731,6 @@ function App() {
       ...INITIAL_FORM,
       date: new Date().toISOString().slice(0, 10),
       endDate: new Date().toISOString().slice(0, 10),
-      setupDate: new Date().toISOString().slice(0, 10),
       projectId: suggestedProjectId,
     });
     setEditingEventId(null);
@@ -1749,10 +1744,7 @@ function App() {
       desc: eventToEdit.desc,
       date: eventToEdit.date,
       endDate: eventToEdit.endDate ?? eventToEdit.date,
-      setupDate:
-        normalizeDateInputValue(eventToEdit.setupDate) ||
-        normalizeDateInputValue(eventToEdit.date) ||
-        new Date().toISOString().slice(0, 10),
+      setupDate: normalizeDateInputValue(eventToEdit.setupDate),
       loc: eventToEdit.loc,
       clientName: eventToEdit.clientName ?? "",
       projectId: eventToEdit.projectId ?? "",
@@ -1804,7 +1796,7 @@ function App() {
     const desc = form.desc.trim();
     const loc = form.loc.trim();
     const clientName = form.clientName.trim();
-    const setupDate = normalizeDateInputValue(form.setupDate) || normalizeDateInputValue(form.date) || today;
+    const setupDate = normalizeDateInputValue(form.setupDate);
     const projectId =
       editingEventId !== null
         ? normalizeProjectId(form.projectId, editingEventId ?? nextId)
@@ -2928,7 +2920,7 @@ function App() {
                       {event.attendeeName || "-"}
                     </span>
                     <span className="dashboard-event-meta" data-label="Setup date">
-                      {formatDate(event.setupDate || event.date)}
+                      {event.setupDate ? formatDate(event.setupDate) : "-"}
                     </span>
                     <span className="dashboard-event-meta dashboard-event-date" data-label="Event date">
                       {formatEventDateRange(event)}
@@ -3289,7 +3281,7 @@ function App() {
                         { label: "Client Name", value: selectedEvent.clientName || "Client name pending", icon: "message" },
                         { label: "Executor", value: selectedEvent.attendeeName || "Executor pending", icon: "shield" },
                         { label: "Sales Person", value: selectedEvent.salesPerson || "Sales person pending", icon: "message" },
-                        { label: "Setup Date", value: selectedEvent.setupDate || selectedEvent.date ? formatDate(selectedEvent.setupDate || selectedEvent.date) : "Setup date pending", icon: "calendar" },
+                        { label: "Setup Date", value: selectedEvent.setupDate ? formatDate(selectedEvent.setupDate) : "Setup date pending", icon: "calendar" },
                         { label: "Location", value: selectedEvent.loc || "Location not added", icon: "image" },
                       ].map((item) => (
                         <div key={item.label} className="event-detail-info-card">
